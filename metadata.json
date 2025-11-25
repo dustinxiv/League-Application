@@ -1,0 +1,5 @@
+{
+  "name": "LOL GAMEBOARD NEW",
+  "description": "A mobile-first League of Legends scouting tool using Riot API and DataDragon.",
+  "requestFramePermissions": []
+}
