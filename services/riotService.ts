@@ -1,7 +1,6 @@
 
 import { ChampionSimple, ChampionDetail, RiotAccount, LiveGameInfo, RegionConfig, LeagueEntry, ChampionMastery } from '../types';
 
-// WARNING: Exposing API Keys on the client side is not secure for production apps.
 const DEFAULT_API_KEY = 'RGAPI-0339b92e-ce0f-48b0-948c-af1b6b6c5224';
 
 class RiotService {
@@ -10,8 +9,6 @@ class RiotService {
   private championsCache: Record<string, ChampionSimple> | null = null;
   private championDetailsCache: Record<string, ChampionDetail> = {};
   private championKeyMap: Record<string, ChampionSimple> = {};
-  
-  // Cache for Summoner IDs to avoid redundant lookups
   private summonerIdCache: Record<string, string> = {};
 
   private constructor() {}
@@ -42,19 +39,15 @@ class RiotService {
 
   public async getAllChampions(): Promise<Record<string, ChampionSimple>> {
     if (this.championsCache) return this.championsCache;
-
     try {
       const response = await fetch(`https://ddragon.leagueoflegends.com/cdn/${this.version}/data/en_US/champion.json`);
       const data = await response.json();
       this.championsCache = data.data;
-      
       Object.values(this.championsCache || {}).forEach(c => {
         this.championKeyMap[c.key] = c;
       });
-
       return this.championsCache || {};
     } catch (e) {
-      console.error('Failed to fetch champions:', e);
       return {};
     }
   }
@@ -65,102 +58,50 @@ class RiotService {
 
   public async getChampionDetail(id: string): Promise<ChampionDetail | null> {
     if (this.championDetailsCache[id]) return this.championDetailsCache[id];
-
     try {
       const response = await fetch(`https://ddragon.leagueoflegends.com/cdn/${this.version}/data/en_US/champion/${id}.json`);
       const data = await response.json();
       const detail = data.data[id] as ChampionDetail;
-      
-      if (!detail.version) {
-        detail.version = this.version;
-      }
-      
+      if (!detail.version) detail.version = this.version;
       this.championDetailsCache[id] = detail;
       return detail;
     } catch (e) {
-      console.error(`Failed to fetch detail for ${id}`, e);
       return null;
     }
   }
 
-  // --- PROXY REQUEST HANDLER ---
+  // --- HYBRID REQUEST HANDLER (Direct + Proxy Fallback) ---
   private async request(url: string, apiKey: string): Promise<any> {
     const key = apiKey || DEFAULT_API_KEY;
     const separator = url.includes('?') ? '&' : '?';
     const targetUrl = `${url}${separator}api_key=${key}`;
     const encodedTarget = encodeURIComponent(targetUrl);
     
-    // Proxy Rotation
-    const proxies = [
-        // AllOrigins with raw output
-        (target: string) => `https://api.allorigins.win/raw?url=${target}&disableCache=${Date.now()}`,
-        // CodeTabs
-        (target: string) => `https://api.codetabs.com/v1/proxy?quest=${target}`,
-        // ThingProxy
-        (target: string) => `https://thingproxy.freeboard.io/fetch/${targetUrl}`
-    ];
-
-    let lastError: any;
-
-    for (const createProxyUrl of proxies) {
+    // In Electron with webSecurity:false, we can hit this DIRECTLY.
+    // This is much faster than using a proxy.
+    try {
+        const res = await fetch(targetUrl);
+        if (res.status === 403) throw new Error('403 Forbidden (Check API Key)');
+        if (res.status === 404) return null;
+        if (res.status === 429) throw new Error('429 Rate Limit');
+        
+        if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
+        return await res.json();
+    } catch (directError: any) {
+        // If direct fetch fails (e.g. Rate limit or weird network issue), we *could* fallback to proxy,
+        // but typically if direct fails in Electron, the proxy won't save us from API Key issues.
+        // We will try one proxy just in case it's a specific routing issue.
+        console.warn('Direct fetch failed, attempting proxy fallback...', directError);
+        
         try {
-            const proxyUrl = createProxyUrl(encodedTarget);
-            // controller for timeout
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s timeout per proxy
-
-            const res = await fetch(proxyUrl, { signal: controller.signal });
-            clearTimeout(timeoutId);
-            
-            if (res.status === 403) throw new Error('403 Forbidden (Check API Key)');
-            if (res.status === 404) return null; // Not found
-            if (res.status === 429) throw new Error('429 Rate Limit');
-            
-            if (!res.ok) {
-                 // Try to parse error body if JSON
-                 try {
-                     const errData = await res.json();
-                     if (errData?.status?.message) {
-                         throw new Error(`Riot API Error: ${errData.status.message}`);
-                     }
-                 } catch (jsonErr) {
-                     // ignore json parse error
-                 }
-                 throw new Error(`HTTP Error: ${res.status}`);
-            }
-
-            const text = await res.text();
-            
-            // Validate response is JSON
-            try {
-                const data = JSON.parse(text);
-                // Some proxies return status object even on 200 OK
-                if (data && data.status && data.status.status_code >= 400) {
-                     if (data.status.status_code === 404) return null;
-                     throw new Error(`Riot API Error: ${data.status.message}`);
-                }
-                if (data.contents && data.status?.url) {
-                    // Wrapped response (AllOrigins non-raw sometimes)
-                    throw new Error('Invalid Proxy Response format');
-                }
-                return data;
-            } catch (e) {
-                // If text is not JSON, it might be an HTML error page from the proxy
-                if (text.includes('Error') || text.includes('Denied')) {
-                    throw new Error('Proxy returned HTML Error');
-                }
-                throw e;
-            }
-
-        } catch (e: any) {
-            lastError = e;
-            // console.warn(`Proxy attempt failed:`, e.message);
-            // Continue to next proxy
+            const proxyUrl = `https://api.allorigins.win/raw?url=${encodedTarget}&disableCache=${Date.now()}`;
+            const res = await fetch(proxyUrl);
+            if (!res.ok) throw new Error('Proxy Failed');
+            return await res.json();
+        } catch (proxyError) {
+             throw directError; // Throw original error as it's likely more relevant
         }
     }
-
-    // console.error('All proxies failed for', url);
-    throw lastError;
   }
 
   public async getAccount(gameName: string, tagLine: string, region: string, apiKey: string): Promise<RiotAccount> {
@@ -180,13 +121,10 @@ class RiotService {
     return await this.request(url, apiKey);
   }
 
-  // Fallback method to get SummonerID from PUUID if Spectator API fails to provide it
   public async getSummonerByPuuid(puuid: string, region: string, apiKey: string): Promise<{id: string, accountId: string} | null> {
     if (this.summonerIdCache[puuid]) return { id: this.summonerIdCache[puuid], accountId: '' };
-
     const routing = this.getRegionRouting(region);
     const url = `https://${routing.platform}.api.riotgames.com/lol/summoner/v4/summoners/by-puuid/${puuid}`;
-    
     try {
         const data = await this.request(url, apiKey);
         if (data && data.id) {
@@ -194,34 +132,24 @@ class RiotService {
             return data;
         }
         return null;
-    } catch (e) {
-        return null;
-    }
+    } catch (e) { return null; }
   }
 
   public async getLeagueEntries(summonerId: string | undefined, puuid: string, region: string, apiKey: string): Promise<LeagueEntry[]> {
     const routing = this.getRegionRouting(region);
     let targetId = summonerId;
 
-    // Critical Fallback: If summonerId is missing (common in Spectator V5), fetch it via PUUID
     if (!targetId || targetId === 'undefined') {
         const summoner = await this.getSummonerByPuuid(puuid, region, apiKey);
-        if (summoner) {
-            targetId = summoner.id;
-        } else {
-            // Cannot fetch rank without summoner ID
-            return [];
-        }
+        if (summoner) targetId = summoner.id;
+        else return [];
     }
 
     const url = `https://${routing.platform}.api.riotgames.com/lol/league/v4/entries/by-summoner/${targetId}`;
     try {
       const data = await this.request(url, apiKey);
       return Array.isArray(data) ? data : [];
-    } catch (e) {
-      // console.warn(`Rank fetch failed for ${targetId}`, e);
-      return []; 
-    }
+    } catch (e) { return []; }
   }
 
   public async getTopMastery(puuid: string, region: string, apiKey: string): Promise<ChampionMastery[]> {
@@ -230,9 +158,7 @@ class RiotService {
     try {
         const data = await this.request(url, apiKey);
         return Array.isArray(data) ? data : [];
-    } catch (e) {
-        return [];
-    }
+    } catch (e) { return []; }
   }
 
   private getRegionRouting(regionCode: string): RegionConfig {

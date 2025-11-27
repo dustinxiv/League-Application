@@ -5,6 +5,7 @@ import AbilitiesPanel from './components/AbilitiesPanel';
 import ChampionDetailCard from './components/ChampionDetailCard';
 import StatsPanel from './components/StatsPanel';
 import MultiSearchPanel from './components/MultiSearchPanel';
+import ChangelogModal from './components/ChangelogModal';
 import { ChampionDetail, Theme, EnrichedParticipant } from './types';
 
 // Icons
@@ -36,6 +37,7 @@ export default function App() {
   const [errorMsg, setErrorMsg] = useState<React.ReactNode>('');
   const [allChampsSimple, setAllChampsSimple] = useState<any[]>([]);
   const [currentVersion, setCurrentVersion] = useState('14.1.1');
+  const [showChangelog, setShowChangelog] = useState(false);
 
   // Nav Ref
   const navScrollRef = useRef<HTMLDivElement>(null);
@@ -75,8 +77,13 @@ export default function App() {
     }
   };
 
-  const fetchLiveGame = async () => {
-    if (!inputName || !inputTag) {
+  // Modified fetchLiveGame to accept optional overrides to fix race condition with presets
+  const fetchLiveGame = async (overrideName?: string, overrideTag?: string) => {
+    // Use overrides if provided, otherwise fall back to state
+    const nameToUse = (overrideName !== undefined ? overrideName : inputName).trim();
+    const tagToUse = (overrideTag !== undefined ? overrideTag : inputTag).trim();
+
+    if (!nameToUse || !tagToUse) {
         setErrorMsg('Riot ID and Tag are required');
         return;
     }
@@ -88,7 +95,7 @@ export default function App() {
 
     try {
       // 1. Get Account
-      const account = await RiotService.getAccount(inputName, inputTag, region, apiKey);
+      const account = await RiotService.getAccount(nameToUse, tagToUse, region, apiKey);
       if (!account) throw new Error('Account not found');
 
       // 2. Get Active Game
@@ -130,8 +137,8 @@ export default function App() {
           for (let i = 0; i < updated.length; i++) {
               const p = updated[i];
               
-              // 300ms delay between players to prevent rate limiting, especially if fallback calls are needed
-              if (i > 0) await new Promise(r => setTimeout(r, 300));
+              // 600ms delay between players to prevent rate limiting with free proxies
+              if (i > 0) await new Promise(r => setTimeout(r, 600));
 
               try {
                   const [entries, mastery] = await Promise.all([
@@ -230,6 +237,12 @@ export default function App() {
     }, 50);
   };
 
+  const handleMultiParticipantClick = (champName: string) => {
+      if (champName) {
+          scrollToChampion(champName);
+      }
+  };
+
   const scrollNav = (direction: 'left' | 'right') => {
     if (navScrollRef.current) {
         const amount = direction === 'left' ? -150 : 150;
@@ -240,6 +253,8 @@ export default function App() {
   const setPreset = (name: string, tag: string) => {
     setInputName(name);
     setInputTag(tag);
+    // Fetch immediately to prevent race condition
+    fetchLiveGame(name, tag);
   };
 
   // Theme Classes
@@ -250,6 +265,7 @@ export default function App() {
         case 'Bilgewater': return 'bg-[#1a0f0a] text-orange-50 selection:bg-orange-500/30';
         case 'Ionia': return 'bg-[#141020] text-rose-50 selection:bg-rose-500/30';
         case 'Shurima': return 'bg-[#161205] text-yellow-50 selection:bg-yellow-500/30';
+        case 'iOS 18 Glass': return 'bg-[#000000] text-gray-100 selection:bg-blue-500/30';
         case 'Dark': return 'bg-zinc-950 text-gray-200 selection:bg-gray-500/30';
         case 'Light': return 'bg-slate-200 text-slate-900 selection:bg-blue-500/30';
         default: return 'bg-zinc-950 text-gray-100';
@@ -263,6 +279,7 @@ export default function App() {
           case 'Bilgewater': return 'text-orange-500';
           case 'Ionia': return 'text-rose-400';
           case 'Shurima': return 'text-yellow-400';
+          case 'iOS 18 Glass': return 'text-[#0a84ff]';
           case 'Light': return 'text-blue-600';
           default: return 'text-blue-400';
       }
@@ -270,23 +287,35 @@ export default function App() {
 
   return (
     <div className={`min-h-screen w-full font-sans transition-colors duration-500 ${getThemeClasses()} pb-20`}>
+      <ChangelogModal isOpen={showChangelog} onClose={() => setShowChangelog(false)} accentColor={getAccentColor()} />
+      
       {/* Header */}
       <header className="sticky top-0 z-50 backdrop-blur-md bg-black/50 border-b border-white/10 px-4 py-3 flex justify-between items-center safe-top shadow-lg">
         <h1 className="text-xl font-bold tracking-tighter uppercase flex items-center gap-2">
             <span className={getAccentColor()}>LoL</span> Gameboard
         </h1>
-        <select 
-            value={theme} 
-            onChange={(e) => setTheme(e.target.value as Theme)}
-            className="bg-black/40 text-xs border border-white/10 rounded px-2 py-1 outline-none focus:border-white/30 text-white"
-        >
-            <option value="Piltover">Piltover</option>
-            <option value="Shadow Isles">Shadow Isles</option>
-            <option value="Bilgewater">Bilgewater</option>
-            <option value="Ionia">Ionia</option>
-            <option value="Shurima">Shurima</option>
-            <option value="Dark">Dark Mode</option>
-        </select>
+        <div className="flex items-center gap-3">
+          <button 
+             onClick={() => setShowChangelog(true)} 
+             className="text-gray-400 hover:text-white transition-colors p-1"
+             title="What's New"
+          >
+             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+          </button>
+          <select 
+              value={theme} 
+              onChange={(e) => setTheme(e.target.value as Theme)}
+              className="bg-black/40 text-xs border border-white/10 rounded px-2 py-1 outline-none focus:border-white/30 text-white"
+          >
+              <option value="Piltover">Piltover</option>
+              <option value="Shadow Isles">Shadow Isles</option>
+              <option value="Bilgewater">Bilgewater</option>
+              <option value="Ionia">Ionia</option>
+              <option value="Shurima">Shurima</option>
+              <option value="iOS 18 Glass">iOS 18 Glass</option>
+              <option value="Dark">Dark Mode</option>
+          </select>
+        </div>
       </header>
 
       {/* Main Content */}
@@ -343,7 +372,7 @@ export default function App() {
                                  <option value="KR">KR</option>
                              </select>
                             <button 
-                                onClick={fetchLiveGame}
+                                onClick={() => fetchLiveGame()}
                                 disabled={isLoading}
                                 className={`flex-1 font-bold uppercase tracking-wide rounded text-sm transition-all shadow-lg ${
                                     isLoading ? 'bg-gray-700 cursor-not-allowed' : 'bg-gradient-to-r from-gray-700 to-gray-600 hover:brightness-110 border border-white/10'
@@ -353,7 +382,8 @@ export default function App() {
                                                      !isLoading && theme === 'Shadow Isles' ? 'linear-gradient(to right, #0d9488, #14b8a6)' :
                                                      !isLoading && theme === 'Bilgewater' ? 'linear-gradient(to right, #c2410c, #ea580c)' :
                                                      !isLoading && theme === 'Ionia' ? 'linear-gradient(to right, #be123c, #e11d48)' :
-                                                     !isLoading && theme === 'Shurima' ? 'linear-gradient(to right, #a16207, #ca8a04)' : undefined
+                                                     !isLoading && theme === 'Shurima' ? 'linear-gradient(to right, #a16207, #ca8a04)' :
+                                                     !isLoading && theme === 'iOS 18 Glass' ? 'linear-gradient(to right, #007aff, #5ac8fa)' : undefined
                                 }}
                             >
                                 {isLoading ? 'Scanning...' : 'Scout Match'}
@@ -421,7 +451,11 @@ export default function App() {
         {/* MULTI TAB */}
         {activeTab === 'Multi' && (
             <div className="animate-fade-in">
-                <MultiSearchPanel participants={scoutedParticipants} progress={enrichmentProgress} />
+                <MultiSearchPanel 
+                    participants={scoutedParticipants} 
+                    progress={enrichmentProgress}
+                    onParticipantClick={handleMultiParticipantClick}
+                />
             </div>
         )}
 

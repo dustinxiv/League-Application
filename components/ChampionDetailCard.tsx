@@ -8,7 +8,8 @@ interface ChampionDetailCardProps {
 }
 
 // Regex reused for display consistency
-const CC_REGEX = /\b(stun|root|suppress|suppression|airborne|knockup|knockback|knockaside|sleep|charm|fear|taunt|suspension|grounded|silence|blind|polymorph|slow|snare)\b/i;
+// Matches root words followed by any characters (e.g., 'charm' matches 'charms', 'charmed')
+const CC_REGEX = /\b(stun|root|suppress|airborne|knock|sleep|charm|fear|taunt|suspen|ground|silence|blind|polymorph|slow|snare|flee|berserk|drowsy)\w*/i;
 
 const SpellRow: React.FC<{ spell: ChampionSpell; hotkey: string; haste: number; version: string }> = ({ spell, hotkey, haste, version }) => {
   const isCC = CC_REGEX.test(spell.description);

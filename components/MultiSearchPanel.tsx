@@ -6,6 +6,7 @@ import RiotService from '../services/riotService';
 interface MultiSearchPanelProps {
   participants: EnrichedParticipant[];
   progress: number;
+  onParticipantClick?: (championName: string) => void;
 }
 
 const RankBadge: React.FC<{ tier: string; rank: string; lp: number }> = ({ tier, rank, lp }) => {
@@ -34,7 +35,7 @@ const RankBadge: React.FC<{ tier: string; rank: string; lp: number }> = ({ tier,
   );
 };
 
-const PlayerCard: React.FC<{ p: EnrichedParticipant }> = ({ p }) => {
+const PlayerCard: React.FC<{ p: EnrichedParticipant, onClick?: (name: string) => void }> = ({ p, onClick }) => {
   const version = RiotService.getVersion();
   // Get Champion Image from ID
   const champData = RiotService.getChampionByKey(p.championId);
@@ -45,7 +46,10 @@ const PlayerCard: React.FC<{ p: EnrichedParticipant }> = ({ p }) => {
   const totalGames = rank ? rank.wins + rank.losses : 0;
 
   return (
-    <div className="flex items-center gap-3 p-2 bg-white/5 border border-white/5 rounded-lg mb-2">
+    <div 
+        className="flex items-center gap-3 p-2 bg-white/5 border border-white/5 rounded-lg mb-2 cursor-pointer hover:bg-white/10 transition-colors active:scale-95 transform"
+        onClick={() => onClick && p.championName && onClick(p.championName)}
+    >
       {/* Champ Icon */}
       <div className="relative shrink-0">
         <img src={champImg} alt="Champ" className="w-10 h-10 rounded-full border border-white/20" />
@@ -103,7 +107,7 @@ const PlayerCard: React.FC<{ p: EnrichedParticipant }> = ({ p }) => {
   );
 };
 
-const MultiSearchPanel: React.FC<MultiSearchPanelProps> = ({ participants, progress }) => {
+const MultiSearchPanel: React.FC<MultiSearchPanelProps> = ({ participants, progress, onParticipantClick }) => {
   const [copied, setCopied] = useState(false);
   
   const blueTeam = participants.filter(p => p.teamId === 100);
@@ -182,13 +186,13 @@ const MultiSearchPanel: React.FC<MultiSearchPanelProps> = ({ participants, progr
         {/* Blue Team */}
         <div>
             <h3 className="text-xs font-bold text-blue-400 uppercase tracking-widest mb-3 border-b border-blue-500/20 pb-1">Blue Team</h3>
-            {blueTeam.map(p => <PlayerCard key={p.puuid} p={p} />)}
+            {blueTeam.map(p => <PlayerCard key={p.puuid} p={p} onClick={onParticipantClick} />)}
         </div>
 
         {/* Red Team */}
         <div>
             <h3 className="text-xs font-bold text-red-400 uppercase tracking-widest mb-3 border-b border-red-500/20 pb-1">Red Team</h3>
-            {redTeam.map(p => <PlayerCard key={p.puuid} p={p} />)}
+            {redTeam.map(p => <PlayerCard key={p.puuid} p={p} onClick={onParticipantClick} />)}
         </div>
       </div>
     </div>

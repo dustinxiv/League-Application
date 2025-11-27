@@ -20,8 +20,8 @@ interface AbilityItem {
   parsedDescription: string;
 }
 
-// Updated Regex to include slows/snares but be strict about word boundaries
-const CC_REGEX = /\b(stun|root|suppress|suppression|airborne|knockup|knockback|knockaside|sleep|charm|fear|taunt|suspension|grounded|silence|blind|polymorph|slow|snare)\b/i;
+// Updated Regex: Matches root words followed by any characters (e.g., 'charm' matches 'charms', 'charmed')
+const CC_REGEX = /\b(stun|root|suppress|airborne|knock|sleep|charm|fear|taunt|suspen|ground|silence|blind|polymorph|slow|snare|flee|berserk|drowsy)\w*/i;
 
 const AbilitiesPanel: React.FC<AbilitiesPanelProps> = ({ champions, globalHaste }) => {
   const listRef = useRef<HTMLDivElement>(null);
@@ -64,8 +64,6 @@ const AbilitiesPanel: React.FC<AbilitiesPanelProps> = ({ champions, globalHaste 
     });
 
     // 3. Simple HTML cleanup/formatting
-    // DataDragon uses <br> but sometimes specialized tags.
-    // We'll keep basic formatting tags.
     return text;
   };
 

@@ -1,5 +1,6 @@
-import React from 'react';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, LabelList } from 'recharts';
+
+import React, { useState, useEffect } from 'react';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, LabelList, CartesianGrid } from 'recharts';
 import { ChampionDetail, Theme } from '../types';
 
 interface StatsPanelProps {
@@ -7,9 +8,16 @@ interface StatsPanelProps {
   theme: Theme;
 }
 
+type FilterType = 'All' | 'Blue' | 'Red' | 'Top' | 'Jungle' | 'Mid' | 'Bot' | 'Support';
+type SortType = 'Alphabetical' | 'Value';
+
 const StatsPanel: React.FC<StatsPanelProps> = ({ champions, theme }) => {
+  const [activeCategory, setActiveCategory] = useState<'Ultimates' | 'Combat' | 'Defense'>('Ultimates');
+  const [filterType, setFilterType] = useState<FilterType>('All');
+  const [sortType, setSortType] = useState<SortType>('Value');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+
   const getThemeColor = (idx: number) => {
-    // Simple palette generator based on index
     const bases: Record<string, string[]> = {
         'Dark': ['#3b82f6', '#8b5cf6', '#ec4899', '#f43f5e', '#f97316'],
         'Light': ['#0ea5e9', '#6366f1', '#d946ef', '#ef4444', '#f59e0b'],
@@ -18,6 +26,7 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ champions, theme }) => {
         'Bilgewater': ['#bf3b3b', '#d9a338', '#1c1815', '#6e2c2c', '#a67b2d'],
         'Ionia': ['#d63031', '#ff7675', '#dfe6e9', '#636e72', '#b2bec3'],
         'Shurima': ['#f1c40f', '#e67e22', '#f39c12', '#d35400', '#2c3e50'],
+        'iOS 18 Glass': ['#0a84ff', '#5e5ce6', '#bf5af2', '#ff375f', '#64d2ff'],
     };
     const palette = bases[theme] || bases['Dark'];
     return palette[idx % palette.length];
@@ -27,20 +36,22 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ champions, theme }) => {
       return <div className="p-10 text-center text-gray-500">No champions to compare.</div>;
   }
 
-  const data = champions.map(c => {
-    // R is usually the 4th spell (index 3)
+  // Map data and preserve original index for Lane filtering
+  const rawData = champions.map((c, index) => {
     const rSpell = c.spells[3]; 
     const rCds = rSpell ? rSpell.cooldown : [];
     
-    // Helper to get CD at rank, falling back to last known if specific rank doesn't exist (e.g. Jayce)
-    const getRCd = (index: number) => {
+    const getRCd = (i: number) => {
         if (rCds.length === 0) return 0;
-        if (index < rCds.length) return rCds[index];
+        if (i < rCds.length) return rCds[i];
         return rCds[rCds.length - 1];
     };
 
     return {
+      originalIndex: index, // Crucial for identifying Blue/Red/Lane
       name: c.name,
+      image: c.image.full,
+      version: c.version,
       HP: c.stats.hp,
       Range: c.stats.attackrange,
       MS: c.stats.movespeed,
@@ -53,42 +64,218 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ champions, theme }) => {
     };
   });
 
-  const metrics = ['HP', 'Range', 'MS', 'AD', 'Armor', 'MR', 'R CD 1', 'R CD 2', 'R CD 3'];
+  const getMetrics = () => {
+      switch(activeCategory) {
+          case 'Ultimates': return ['R CD 1', 'R CD 2', 'R CD 3'];
+          case 'Combat': return ['HP', 'AD', 'Range', 'MS'];
+          case 'Defense': return ['Armor', 'MR'];
+          default: return [];
+      }
+  };
+
+  const metrics = getMetrics();
+
+  // Reset sort defaults when category changes
+  useEffect(() => {
+    setSortType('Value');
+    setSortDirection('desc');
+  }, [activeCategory]);
+
+  // --- 1. FILTERING LOGIC ---
+  const filteredData = rawData.filter(item => {
+      if (filterType === 'All') return true;
+      
+      const idx = item.originalIndex;
+      
+      // Team Filters
+      if (filterType === 'Blue') return idx < 5;
+      if (filterType === 'Red') return idx >= 5;
+
+      // Lane Filters (Assumes standard API ordering: 0/5=Top, 1/6=Jg, etc.)
+      const normalizedPos = idx % 5;
+      switch(filterType) {
+          case 'Top': return normalizedPos === 0;
+          case 'Jungle': return normalizedPos === 1;
+          case 'Mid': return normalizedPos === 2;
+          case 'Bot': return normalizedPos === 3;
+          case 'Support': return normalizedPos === 4;
+          default: return true;
+      }
+  });
+
+  const dynamicHeight = Math.max(150, filteredData.length * 55);
+
+  const CustomYAxisTick = ({ x, y, payload }: any) => {
+      const champ = rawData.find(c => c.name === payload.value);
+      if (!champ) return null;
+      
+      const imgUrl = `https://ddragon.leagueoflegends.com/cdn/${champ.version || '14.1.1'}/img/champion/${champ.image}`;
+
+      return (
+        <g transform={`translate(${x},${y})`}>
+            <foreignObject x={-28} y={-10} width={20} height={20}>
+                <div style={{ width: 20, height: 20 }}>
+                    <img 
+                        src={imgUrl} 
+                        style={{ width: '100%', height: '100%', borderRadius: '50%', border: '1px solid #4b5563' }} 
+                        alt=""
+                    />
+                </div>
+            </foreignObject>
+            <text x={-35} y={4} dy={0} textAnchor="end" fill="#9ca3af" fontSize={10} fontWeight="bold">
+                {payload.value}
+            </text>
+        </g>
+      );
+  };
+
+  // Helper to sort data for a specific metric
+  const getSortedDataForMetric = (metric: string) => {
+      return [...filteredData].sort((a, b) => {
+          if (sortType === 'Alphabetical') {
+              return sortDirection === 'asc' 
+                ? a.name.localeCompare(b.name) 
+                : b.name.localeCompare(a.name);
+          }
+
+          // Numeric Sort (Value)
+          // @ts-ignore
+          const valA = a[metric] || 0;
+          // @ts-ignore
+          const valB = b[metric] || 0;
+          return sortDirection === 'asc' ? valA - valB : valB - valA;
+      });
+  };
 
   return (
-    <div className="w-full pb-24 space-y-8">
-      {metrics.map((metric) => (
-          <div key={metric} className="bg-black/20 rounded-lg p-2 border border-white/5">
-            <h3 className="text-sm font-bold text-gray-400 mb-2 px-2 uppercase tracking-widest">{metric} Comparison</h3>
-            <div className="h-40 w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={data} layout="vertical" margin={{ left: 0, right: 45, top: 0, bottom: 0 }}>
-                    <XAxis type="number" hide />
-                    <YAxis 
-                        dataKey="name" 
-                        type="category" 
-                        width={60} 
-                        tick={{fill: '#9ca3af', fontSize: 10}} 
-                        axisLine={false}
-                        tickLine={false}
-                        interval={0} 
-                    />
-                    <Tooltip 
-                        contentStyle={{ backgroundColor: '#1f2937', borderColor: '#374151', color: '#f3f4f6' }}
-                        itemStyle={{ color: '#f3f4f6' }}
-                        cursor={{fill: 'rgba(255,255,255,0.05)'}}
-                    />
-                    <Bar dataKey={metric} barSize={16} radius={[0, 4, 4, 0]}>
-                        {data.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={getThemeColor(index)} />
-                        ))}
-                        <LabelList dataKey={metric} position="right" fill="#9ca3af" fontSize={10} fontWeight="bold" />
-                    </Bar>
-                </BarChart>
-                </ResponsiveContainer>
+    <div className="w-full pb-24 space-y-4">
+      {/* Controls Container */}
+      <div className="bg-black/20 p-3 rounded-lg border border-white/5 flex flex-col gap-3 shadow-sm">
+          
+          {/* Top Row: Category & Filter */}
+          <div className="flex flex-wrap items-center justify-between border-b border-white/5 pb-2 gap-2">
+            
+            {/* Category */}
+            <div className="flex items-center gap-2">
+                <label className="text-xs font-bold uppercase text-gray-300 tracking-wide hidden sm:block">View:</label>
+                <select 
+                    value={activeCategory}
+                    onChange={(e) => setActiveCategory(e.target.value as any)}
+                    className="bg-gray-800 text-white text-xs font-bold rounded border border-white/10 px-3 py-1.5 outline-none focus:border-white/30 cursor-pointer"
+                >
+                    <option value="Ultimates">Ultimates</option>
+                    <option value="Combat">Combat Stats</option>
+                    <option value="Defense">Defenses</option>
+                </select>
+            </div>
+
+            {/* Lane Filter */}
+            <div className="flex items-center gap-2">
+                <label className="text-xs font-bold uppercase text-gray-300 tracking-wide hidden sm:block">Filter:</label>
+                <select 
+                    value={filterType}
+                    onChange={(e) => setFilterType(e.target.value as FilterType)}
+                    className="bg-gray-800 text-white text-xs font-bold rounded border border-white/10 px-3 py-1.5 outline-none focus:border-white/30 cursor-pointer"
+                >
+                    <option value="All">All Players</option>
+                    <option disabled>──────────</option>
+                    <option value="Blue">Blue Team</option>
+                    <option value="Red">Red Team</option>
+                    <option disabled>──────────</option>
+                    <option value="Top">Top Lane</option>
+                    <option value="Jungle">Jungle</option>
+                    <option value="Mid">Mid Lane</option>
+                    <option value="Bot">Bot Lane</option>
+                    <option value="Support">Support</option>
+                </select>
             </div>
           </div>
-      ))}
+
+          {/* Bottom Row: Sorting */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" /></svg>
+                <label className="text-xs font-bold uppercase text-gray-300 tracking-wide">Sort:</label>
+            </div>
+            
+            <div className="flex gap-2">
+                {/* Simplified Metric Selector */}
+                <select 
+                    value={sortType}
+                    onChange={(e) => setSortType(e.target.value as SortType)}
+                    className="bg-gray-800 text-white text-xs font-bold rounded border border-white/10 px-3 py-1.5 outline-none focus:border-white/30 cursor-pointer"
+                >
+                    <option value="Value">By Value</option>
+                    <option value="Alphabetical">Alphabetical</option>
+                </select>
+
+                {/* Direction Toggle */}
+                <button 
+                    onClick={() => setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc')}
+                    className="bg-gray-800 border border-white/10 rounded px-2 py-1.5 hover:bg-gray-700 transition-colors"
+                    title={sortDirection === 'asc' ? "Ascending" : "Descending"}
+                >
+                    {sortDirection === 'asc' ? (
+                        <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h13M3 8h9m-9 4h9m5-4v12m0 0l-4-4m4 4l4-4" /></svg>
+                    ) : (
+                        <svg className="w-4 h-4 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" /></svg>
+                    )}
+                </button>
+            </div>
+          </div>
+      </div>
+
+      <div className="space-y-8">
+        {metrics.map((metric) => {
+            // Sort data specifically for THIS graph based on the global sort settings
+            const sortedData = getSortedDataForMetric(metric);
+            
+            return (
+                <div key={metric} className={`bg-black/20 rounded-xl p-3 border animate-fade-in shadow-md transition-colors duration-300 ${sortType === 'Value' ? 'border-white/20 bg-black/40' : 'border-white/5'}`}>
+                    <div className="flex items-center justify-between mb-3 px-2">
+                        <h3 className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em]">{metric}</h3>
+                        {sortType === 'Value' && (
+                            <span className="text-[9px] bg-white/10 text-gray-300 px-1.5 py-0.5 rounded uppercase font-bold">Sorted</span>
+                        )}
+                    </div>
+                    {sortedData.length > 0 ? (
+                        <div style={{ height: dynamicHeight, width: '100%' }}>
+                            <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={sortedData} layout="vertical" margin={{ left: 20, right: 45, top: 0, bottom: 0 }} barGap={4}>
+                                <CartesianGrid horizontal={false} stroke="#ffffff" strokeOpacity={0.05} />
+                                <XAxis type="number" hide />
+                                <YAxis 
+                                    dataKey="name" 
+                                    type="category" 
+                                    width={90} 
+                                    tick={<CustomYAxisTick />}
+                                    axisLine={false}
+                                    tickLine={false}
+                                    interval={0} 
+                                />
+                                <Tooltip 
+                                    contentStyle={{ backgroundColor: '#111827', borderColor: '#374151', color: '#f3f4f6', borderRadius: '0.5rem', fontSize: '12px' }}
+                                    itemStyle={{ color: '#e5e7eb' }}
+                                    cursor={{fill: 'rgba(255,255,255,0.05)'}}
+                                />
+                                <Bar dataKey={metric} barSize={20} radius={[0, 4, 4, 0]} animationDuration={500}>
+                                    {sortedData.map((entry, index) => (
+                                        <Cell key={`cell-${index}`} fill={getThemeColor(index)} opacity={sortType === 'Value' ? 1 : 0.6} />
+                                    ))}
+                                    <LabelList dataKey={metric} position="right" fill="#9ca3af" fontSize={11} fontWeight="bold" />
+                                </Bar>
+                            </BarChart>
+                            </ResponsiveContainer>
+                        </div>
+                    ) : (
+                        <div className="h-20 flex items-center justify-center text-xs text-gray-500 italic border border-dashed border-white/10 rounded">
+                            No champions match this filter.
+                        </div>
+                    )}
+                </div>
+            );
+        })}
+      </div>
     </div>
   );
 };

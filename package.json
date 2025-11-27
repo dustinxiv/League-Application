@@ -1,23 +1,52 @@
 {
-  "name": "lol-gameboard-new",
+  "name": "lol-gameboard",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
+  "main": "electron/main.cjs",
+  "description": "LoL Gameboard Scouting Tool",
+  "author": "LoL Gameboard",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "electron:dev": "concurrently \"vite\" \"wait-on tcp:5173 && electron .\"",
+    "dist": "electron-builder"
   },
   "dependencies": {
-    "react": "^19.2.0",
-    "react-dom": "^19.2.0",
-    "recharts": "2.12.7",
-    "sortablejs": "1.15.2"
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "recharts": "^2.12.7",
+    "sortablejs": "^1.15.2"
   },
   "devDependencies": {
-    "@types/node": "^22.14.0",
-    "@vitejs/plugin-react": "^5.0.0",
-    "typescript": "~5.8.2",
-    "vite": "^6.2.0"
+    "@types/react": "^18.2.66",
+    "@types/react-dom": "^18.2.22",
+    "@types/sortablejs": "^1.15.8",
+    "@vitejs/plugin-react": "^4.2.1",
+    "autoprefixer": "^10.4.19",
+    "concurrently": "^8.2.2",
+    "electron": "^29.1.0",
+    "electron-builder": "^24.13.3",
+    "postcss": "^8.4.38",
+    "tailwindcss": "^3.4.3",
+    "typescript": "^5.2.2",
+    "vite": "^5.2.0",
+    "wait-on": "^7.2.0"
+  },
+  "build": {
+    "appId": "com.lolgameboard.app",
+    "productName": "LoL Gameboard",
+    "directories": {
+      "output": "dist_exe"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*"
+    ],
+    "win": {
+      "target": "portable",
+      "icon": "dist/vite.svg" 
+    }
   }
 }
