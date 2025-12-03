@@ -162,3 +162,11 @@ export interface EnrichedParticipant extends LiveGameParticipant {
   mastery?: ChampionMastery[];
   isLoaded?: boolean;
 }
+
+export interface SavedGame {
+  id: string;
+  title: string;
+  notes: string;
+  date: string;
+  pool: ChampionDetail[];
+}

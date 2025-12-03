@@ -117,11 +117,11 @@ const ChampionDetailCard: React.FC<ChampionDetailCardProps> = ({ champion, globa
   return (
     <div id={id} className="bg-gray-900/80 rounded-xl overflow-hidden border border-white/10 shadow-lg mb-4 scroll-mt-32">
       {/* Header Splash */}
-      <div className="relative h-32">
+      <div className="relative h-32 overflow-hidden group">
         <img 
             src={`https://ddragon.leagueoflegends.com/cdn/img/champion/splash/${champion.id}_0.jpg`} 
             alt={champion.name} 
-            className="w-full h-full object-cover object-top opacity-60 mask-image-gradient"
+            className="w-full h-full object-cover object-top opacity-60 mask-image-gradient transition-all duration-700 ease-out group-hover:scale-105 group-hover:opacity-100 group-hover:brightness-110"
         />
         <div className="absolute bottom-0 left-0 w-full p-3 bg-gradient-to-t from-gray-900 to-transparent">
             <h2 className="text-2xl font-bold text-white tracking-wide drop-shadow-md">{champion.name}</h2>

@@ -116,11 +116,15 @@ const MultiSearchPanel: React.FC<MultiSearchPanelProps> = ({ participants, progr
   if (participants.length === 0) return <div className="text-center p-8 text-gray-500">No live game data available.</div>;
 
   const handleCopyOpGg = () => {
-      // Create a comma separated list of Riot IDs: Name#Tag, Name#Tag
+      // Create a comma separated list of Riot IDs with format: "Name #Tag,Name #Tag"
       const text = participants
-        .map(p => p.riotId)
+        .map(p => {
+            if (!p.riotId) return '';
+            // Insert space before hash if it exists
+            return p.riotId.includes('#') ? p.riotId.replace('#', ' #') : p.riotId;
+        })
         .filter(id => id) // Ensure no empties
-        .join(', ');
+        .join(',');
 
       navigator.clipboard.writeText(text).then(() => {
           setCopied(true);

@@ -5,8 +5,10 @@ import AbilitiesPanel from './components/AbilitiesPanel';
 import ChampionDetailCard from './components/ChampionDetailCard';
 import StatsPanel from './components/StatsPanel';
 import MultiSearchPanel from './components/MultiSearchPanel';
+import StudioPanel from './components/StudioPanel';
 import ChangelogModal from './components/ChangelogModal';
-import { ChampionDetail, Theme, EnrichedParticipant } from './types';
+import ConfirmationModal from './components/ConfirmationModal';
+import { ChampionDetail, Theme, EnrichedParticipant, SavedGame } from './types';
 
 // Icons
 const IconScout = () => <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>;
@@ -14,8 +16,9 @@ const IconDetails = () => <svg className="w-6 h-6" fill="none" stroke="currentCo
 const IconAbilities = () => <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>;
 const IconStats = () => <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 002 2h2a2 2 0 002-2z" /></svg>;
 const IconMulti = () => <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>;
+const IconStudio = () => <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>;
 
-type Tab = 'Scout' | 'Multi' | 'Details' | 'Abilities' | 'Stats';
+type Tab = 'Scout' | 'Multi' | 'Details' | 'Abilities' | 'Stats' | 'Studio';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>('Scout');
@@ -39,6 +42,18 @@ export default function App() {
   const [currentVersion, setCurrentVersion] = useState('14.1.1');
   const [showChangelog, setShowChangelog] = useState(false);
 
+  // Saved Games State
+  const [savedGames, setSavedGames] = useState<SavedGame[]>([]);
+  const [saveTitle, setSaveTitle] = useState('');
+  const [saveNotes, setSaveNotes] = useState('');
+  const [showSaveConfirmation, setShowSaveConfirmation] = useState(false);
+  
+  // Edit Game State
+  const [editingGameId, setEditingGameId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editNotes, setEditNotes] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   // Nav Ref
   const navScrollRef = useRef<HTMLDivElement>(null);
 
@@ -52,12 +67,18 @@ export default function App() {
       });
     });
     
-    // Load persisted
+    // Load persisted state
     const saved = localStorage.getItem('lol-gameboard-state');
     if (saved) {
       const parsed = JSON.parse(saved);
       if (parsed.theme) setTheme(parsed.theme);
       if (parsed.apiKey) setApiKey(parsed.apiKey);
+    }
+
+    // Load saved games
+    const games = localStorage.getItem('lol-saved-games-list');
+    if (games) {
+        setSavedGames(JSON.parse(games));
     }
   }, []);
 
@@ -70,16 +91,13 @@ export default function App() {
     if (val.includes('#')) {
         const [name, tag] = val.split('#');
         setInputName(name);
-        // Remove the # and any trailing/leading whitespace if present
         if (tag) setInputTag(tag.trim());
     } else {
         setInputName(val);
     }
   };
 
-  // Modified fetchLiveGame to accept optional overrides to fix race condition with presets
   const fetchLiveGame = async (overrideName?: string, overrideTag?: string) => {
-    // Use overrides if provided, otherwise fall back to state
     const nameToUse = (overrideName !== undefined ? overrideName : inputName).trim();
     const tagToUse = (overrideTag !== undefined ? overrideTag : inputTag).trim();
 
@@ -94,19 +112,16 @@ export default function App() {
     setScoutedParticipants([]);
 
     try {
-      // 1. Get Account
       const account = await RiotService.getAccount(nameToUse, tagToUse, region, apiKey);
       if (!account) throw new Error('Account not found');
 
-      // 2. Get Active Game
       const game = await RiotService.getLiveGame(account.puuid, region, apiKey);
-      if (!game) {
+      if (!game || !game.participants) {
         setErrorMsg('Summoner is not currently in an active game.');
         setIsLoading(false);
         return;
       }
 
-      // 3. Get Details for all participants (Champions)
       const champIdMap = RiotService.getChampionIdToNameMap();
       const promises = game.participants.map(p => {
          const champName = champIdMap[p.championId];
@@ -119,8 +134,6 @@ export default function App() {
       setChampionPool(validDetails);
       setActiveTab('Multi');
 
-      // 4. Background: Get Rank and Mastery for Multi Panel
-      // Initialize with basic data immediately so UI shows something
       const initialParticipants: EnrichedParticipant[] = game.participants.map(p => ({
           ...p,
           championName: champIdMap[p.championId],
@@ -130,19 +143,15 @@ export default function App() {
       }));
       setScoutedParticipants(initialParticipants);
 
-      // Function to fetch Enriched data sequentially to avoid Rate Limiting (429) and Proxy Blocks
       const fetchEnrichedData = async () => {
           const updated = [...initialParticipants];
           
           for (let i = 0; i < updated.length; i++) {
               const p = updated[i];
-              
-              // 600ms delay between players to prevent rate limiting with free proxies
-              if (i > 0) await new Promise(r => setTimeout(r, 600));
+              if (i > 0) await new Promise(r => setTimeout(r, 250));
 
               try {
                   const [entries, mastery] = await Promise.all([
-                      // Pass both summonerId and puuid. Service will handle fallback if ID is undefined
                       RiotService.getLeagueEntries(p.summonerId, p.puuid, region, apiKey)
                         .catch(e => { console.warn(`Rank fetch failed for ${p.riotId}`, e); return []; }),
                       RiotService.getTopMastery(p.puuid, region, apiKey)
@@ -157,7 +166,6 @@ export default function App() {
                       isLoaded: true
                   };
                   
-                  // Update progress and state incrementally
                   setEnrichmentProgress(Math.round(((i + 1) / updated.length) * 100));
                   setScoutedParticipants([...updated]);
               } catch (e) {
@@ -166,11 +174,8 @@ export default function App() {
                   setScoutedParticipants([...updated]);
               }
           }
-          // Clear progress after a moment
           setTimeout(() => setEnrichmentProgress(0), 1000);
       };
-
-      // Start fetching in background
       fetchEnrichedData();
 
     } catch (e: any) {
@@ -178,14 +183,7 @@ export default function App() {
       const msg = e.message || 'Failed to fetch live game.';
       
       if (msg.includes('403')) {
-          setErrorMsg(
-            <span>
-                API Key Expired or Invalid. <br/>
-                <a href="https://developer.riotgames.com/" target="_blank" rel="noreferrer" className="underline text-amber-400">
-                    Get a new key here
-                </a>
-            </span>
-          );
+          setErrorMsg(<span>API Key Expired. <a href="https://developer.riotgames.com/" target="_blank" rel="noreferrer" className="underline text-amber-400">Get a new key</a></span>);
       } else if (msg.includes('404')) {
           setErrorMsg('Account not found (Check Name#Tag or Region)');
       } else {
@@ -228,19 +226,13 @@ export default function App() {
             const headerOffset = 130; 
             const elementPosition = element.getBoundingClientRect().top;
             const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
-          
-            window.scrollTo({
-                top: offsetPosition,
-                behavior: "smooth"
-            });
+            window.scrollTo({ top: offsetPosition, behavior: "smooth" });
         }
     }, 50);
   };
 
   const handleMultiParticipantClick = (champName: string) => {
-      if (champName) {
-          scrollToChampion(champName);
-      }
+      if (champName) scrollToChampion(champName);
   };
 
   const scrollNav = (direction: 'left' | 'right') => {
@@ -253,8 +245,117 @@ export default function App() {
   const setPreset = (name: string, tag: string) => {
     setInputName(name);
     setInputTag(tag);
-    // Fetch immediately to prevent race condition
     fetchLiveGame(name, tag);
+  };
+
+  // --- SAVE / EDIT SYSTEM ---
+
+  const triggerSaveGame = () => {
+    if (!saveTitle) {
+        alert("Please enter a title to save this game.");
+        return;
+    }
+    setShowSaveConfirmation(true);
+  };
+
+  const confirmSaveGame = () => {
+    const newSave: SavedGame = {
+        id: Date.now().toString(),
+        date: new Date().toLocaleDateString(),
+        title: saveTitle,
+        notes: saveNotes,
+        pool: championPool
+    };
+    
+    const updatedGames = [newSave, ...savedGames];
+    setSavedGames(updatedGames);
+    localStorage.setItem('lol-saved-games-list', JSON.stringify(updatedGames));
+    
+    // Reset UI
+    setShowSaveConfirmation(false);
+    setSaveTitle('');
+    setSaveNotes('');
+  };
+
+  const loadSavedGame = (game: SavedGame) => {
+    setChampionPool(game.pool);
+    setActiveTab('Details');
+  };
+
+  const deleteSavedGame = (id: string) => {
+      if (confirm('Are you sure you want to delete this saved game?')) {
+        const updated = savedGames.filter(g => g.id !== id);
+        setSavedGames(updated);
+        localStorage.setItem('lol-saved-games-list', JSON.stringify(updated));
+      }
+  };
+
+  const startEditingGame = (game: SavedGame) => {
+      setEditingGameId(game.id);
+      setEditTitle(game.title);
+      setEditNotes(game.notes);
+  };
+
+  const cancelEditing = () => {
+      setEditingGameId(null);
+      setEditTitle('');
+      setEditNotes('');
+  };
+
+  const saveEditedGame = () => {
+      if (!editingGameId) return;
+      const updated = savedGames.map(g => {
+          if (g.id === editingGameId) {
+              return { ...g, title: editTitle, notes: editNotes };
+          }
+          return g;
+      });
+      setSavedGames(updated);
+      localStorage.setItem('lol-saved-games-list', JSON.stringify(updated));
+      cancelEditing();
+  };
+
+  // --- IMPORT / EXPORT SYSTEM ---
+  const exportSavedGames = () => {
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(savedGames));
+      const downloadAnchorNode = document.createElement('a');
+      downloadAnchorNode.setAttribute("href", dataStr);
+      downloadAnchorNode.setAttribute("download", "lol_gameboard_saves.json");
+      document.body.appendChild(downloadAnchorNode);
+      downloadAnchorNode.click();
+      downloadAnchorNode.remove();
+  };
+
+  const importSavedGames = (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      if (!file) return;
+      
+      const reader = new FileReader();
+      reader.onload = (e) => {
+          try {
+              const text = e.target?.result as string;
+              const importedGames = JSON.parse(text) as SavedGame[];
+              
+              if (Array.isArray(importedGames) && importedGames.length > 0 && importedGames[0].pool) {
+                  const merged = [...importedGames, ...savedGames];
+                  // Remove duplicates by ID
+                  const unique = merged.filter((game, index, self) => 
+                    index === self.findIndex((t) => t.id === game.id)
+                  );
+                  
+                  setSavedGames(unique);
+                  localStorage.setItem('lol-saved-games-list', JSON.stringify(unique));
+                  alert(`Successfully imported ${importedGames.length} games.`);
+              } else {
+                  alert('Invalid file format.');
+              }
+          } catch (err) {
+              alert('Failed to parse JSON file.');
+          }
+      };
+      reader.readAsText(file);
+      // Reset input
+      if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   // Theme Classes
@@ -288,6 +389,14 @@ export default function App() {
   return (
     <div className={`min-h-screen w-full font-sans transition-colors duration-500 ${getThemeClasses()} pb-20`}>
       <ChangelogModal isOpen={showChangelog} onClose={() => setShowChangelog(false)} accentColor={getAccentColor()} />
+      <ConfirmationModal 
+        isOpen={showSaveConfirmation}
+        title="Confirm Save"
+        message={`Are you sure you want to save "${saveTitle}" with ${championPool.length} champions?`}
+        onConfirm={confirmSaveGame}
+        onCancel={() => setShowSaveConfirmation(false)}
+        accentColor={getAccentColor()}
+      />
       
       {/* Header */}
       <header className="sticky top-0 z-50 backdrop-blur-md bg-black/50 border-b border-white/10 px-4 py-3 flex justify-between items-center safe-top shadow-lg">
@@ -417,9 +526,7 @@ export default function App() {
                                                 src={`https://ddragon.leagueoflegends.com/cdn/${c.version || currentVersion}/img/champion/${c.image.full}`} 
                                                 className="w-6 h-6 rounded-full"
                                                 alt={c.name}
-                                                onError={(e) => {
-                                                    e.currentTarget.style.display = 'none';
-                                                }}
+                                                onError={(e) => { e.currentTarget.style.display = 'none'; }}
                                             />
                                             <span>{c.name}</span>
                                         </div>
@@ -428,7 +535,7 @@ export default function App() {
                         )}
                     </div>
 
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-wrap gap-2 mb-2">
                         {championPool.map(c => (
                             <div key={c.id} className="relative group cursor-pointer" onClick={() => scrollToChampion(c.id)}>
                                 <img 
@@ -444,6 +551,161 @@ export default function App() {
                         ))}
                          {championPool.length === 0 && <span className="text-gray-500 text-sm italic">Pool is empty.</span>}
                     </div>
+
+                    {/* SAVE GAME SECTION */}
+                    {championPool.length > 0 && (
+                        <div className="mt-6 pt-4 border-t border-white/10">
+                             <div className="flex gap-2 mb-2">
+                                <input 
+                                    type="text" 
+                                    placeholder="Game Title (e.g. Scrim vs TSM)" 
+                                    value={saveTitle}
+                                    onChange={(e) => setSaveTitle(e.target.value)}
+                                    className="flex-1 bg-black/40 border border-white/10 rounded p-2 text-sm focus:border-white/30 outline-none"
+                                />
+                                <button 
+                                    onClick={triggerSaveGame}
+                                    className="bg-green-600 hover:bg-green-500 text-white font-bold px-4 rounded text-sm transition-colors shadow-lg"
+                                >
+                                    Save
+                                </button>
+                             </div>
+                             <textarea 
+                                placeholder="Notes..."
+                                value={saveNotes}
+                                onChange={(e) => setSaveNotes(e.target.value)}
+                                className="w-full bg-black/40 border border-white/10 rounded p-2 text-sm focus:border-white/30 outline-none h-16 resize-none"
+                             />
+                        </div>
+                    )}
+                </div>
+
+                {/* SAVED GAMES LIST & TOOLS */}
+                <div className="bg-white/5 p-4 rounded-xl border border-white/10 shadow-lg">
+                    <div className="flex justify-between items-center mb-4">
+                        <h2 className="text-sm font-bold uppercase opacity-60">Saved Games System</h2>
+                        <div className="flex gap-2">
+                             <input 
+                                type="file" 
+                                accept=".json" 
+                                ref={fileInputRef} 
+                                onChange={importSavedGames} 
+                                className="hidden" 
+                             />
+                             <button 
+                                onClick={() => fileInputRef.current?.click()}
+                                className="text-[10px] bg-white/10 hover:bg-white/20 px-2 py-1 rounded text-gray-300"
+                                title="Import JSON"
+                             >
+                                Import
+                             </button>
+                             <button 
+                                onClick={exportSavedGames}
+                                className="text-[10px] bg-white/10 hover:bg-white/20 px-2 py-1 rounded text-gray-300"
+                                title="Export JSON"
+                             >
+                                Export
+                             </button>
+                        </div>
+                    </div>
+
+                    {savedGames.length === 0 ? (
+                        <div className="text-center text-gray-500 text-sm py-4 italic">No saved games found.</div>
+                    ) : (
+                        <div className="space-y-3">
+                            {savedGames.map(game => (
+                                <div key={game.id} className="bg-black/20 p-3 rounded border border-white/5 group">
+                                    
+                                    {/* MODE SWITCH: EDITING vs VIEWING */}
+                                    {editingGameId === game.id ? (
+                                        // --- EDIT MODE ---
+                                        <div className="space-y-2 animate-fade-in">
+                                            <div className="flex gap-2">
+                                                <input 
+                                                    type="text" 
+                                                    value={editTitle}
+                                                    onChange={(e) => setEditTitle(e.target.value)}
+                                                    className="flex-1 bg-black/60 border border-blue-500/50 rounded p-1.5 text-sm outline-none text-white"
+                                                    autoFocus
+                                                />
+                                            </div>
+                                            <textarea 
+                                                value={editNotes}
+                                                onChange={(e) => setEditNotes(e.target.value)}
+                                                className="w-full bg-black/60 border border-blue-500/50 rounded p-1.5 text-xs outline-none h-16 resize-none text-gray-300"
+                                            />
+                                            <div className="flex justify-end gap-2 mt-2">
+                                                <button 
+                                                    onClick={cancelEditing} 
+                                                    className="text-xs bg-gray-700 px-3 py-1 rounded hover:bg-gray-600 text-gray-300"
+                                                >
+                                                    Cancel
+                                                </button>
+                                                <button 
+                                                    onClick={saveEditedGame} 
+                                                    className="text-xs bg-blue-600 px-3 py-1 rounded hover:bg-blue-500 text-white font-bold"
+                                                >
+                                                    Save Changes
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        // --- VIEW MODE ---
+                                        <div className="flex justify-between items-start">
+                                            <div className="flex-1 min-w-0 pr-2">
+                                                <div 
+                                                    className="flex items-center gap-2 mb-1 cursor-pointer hover:opacity-80"
+                                                    onClick={() => loadSavedGame(game)}
+                                                >
+                                                    <span className="font-bold text-gray-200 truncate">{game.title}</span>
+                                                    <span className="text-[10px] text-gray-500 shrink-0">{game.date}</span>
+                                                </div>
+                                                
+                                                {/* Champ Preview */}
+                                                <div className="flex -space-x-1 overflow-hidden w-full max-w-[200px] mb-2 pointer-events-none">
+                                                    {game.pool.slice(0, 5).map(c => (
+                                                        <img 
+                                                            key={c.id} 
+                                                            src={`https://ddragon.leagueoflegends.com/cdn/${c.version || currentVersion}/img/champion/${c.image.full}`} 
+                                                            className="w-5 h-5 rounded-full border border-gray-900 inline-block bg-gray-800"
+                                                        />
+                                                    ))}
+                                                    {game.pool.length > 5 && (
+                                                        <div className="w-5 h-5 rounded-full bg-gray-800 border border-gray-900 flex items-center justify-center text-[8px] text-white">+{game.pool.length - 5}</div>
+                                                    )}
+                                                </div>
+                                                
+                                                {/* Notes */}
+                                                {game.notes && <p className="text-xs text-gray-500 truncate">{game.notes}</p>}
+                                            </div>
+
+                                            {/* Action Buttons */}
+                                            <div className="flex flex-col gap-1.5 shrink-0">
+                                                <button 
+                                                    onClick={() => loadSavedGame(game)} 
+                                                    className="text-[10px] bg-green-600/20 text-green-400 px-2 py-1 rounded hover:bg-green-600/40 font-bold border border-green-600/20"
+                                                >
+                                                    LOAD
+                                                </button>
+                                                <button 
+                                                    onClick={() => startEditingGame(game)} 
+                                                    className="text-[10px] bg-blue-600/20 text-blue-400 px-2 py-1 rounded hover:bg-blue-600/40 border border-blue-600/20"
+                                                >
+                                                    EDIT
+                                                </button>
+                                                <button 
+                                                    onClick={() => deleteSavedGame(game.id)} 
+                                                    className="text-[10px] bg-red-600/20 text-red-400 px-2 py-1 rounded hover:bg-red-600/40 border border-red-600/20"
+                                                >
+                                                    DEL
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </div>
             </div>
         )}
@@ -544,6 +806,11 @@ export default function App() {
             </div>
         )}
 
+        {/* STUDIO TAB */}
+        {activeTab === 'Studio' && (
+            <StudioPanel champions={championPool} participants={scoutedParticipants} theme={theme} />
+        )}
+
       </main>
 
       {/* Bottom Nav */}
@@ -567,6 +834,10 @@ export default function App() {
         <button onClick={() => setActiveTab('Stats')} className={`flex flex-col items-center p-3 w-full ${activeTab === 'Stats' ? getAccentColor() : 'text-gray-500'}`}>
             <IconStats />
             <span className="text-[10px] mt-1 font-bold uppercase">Stats</span>
+        </button>
+        <button onClick={() => setActiveTab('Studio')} className={`flex flex-col items-center p-3 w-full ${activeTab === 'Studio' ? getAccentColor() : 'text-gray-500'}`}>
+            <IconStudio />
+            <span className="text-[10px] mt-1 font-bold uppercase">Studio</span>
         </button>
       </nav>
     </div>
