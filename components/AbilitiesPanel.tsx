@@ -30,7 +30,7 @@ const AbilitiesPanel: React.FC<AbilitiesPanelProps> = ({ champions, globalHaste,
   const sortableInstance = useRef<Sortable | null>(null);
   const [items, setItems] = useState<AbilityItem[]>([]);
 
-  const isLightTheme = theme === 'Light' || theme === 'Piltover' || theme === 'Winter Wonder';
+  const isLightTheme = theme === 'Light' || theme === 'Piltover' || theme === 'Winter Wonder' || theme === 'Ionia';
 
   // Helper to parse tooltip data {{ e1 }} and {{ a1 }}
   const parseTooltip = (spell: ChampionSpell) => {
@@ -158,10 +158,10 @@ const AbilitiesPanel: React.FC<AbilitiesPanelProps> = ({ champions, globalHaste,
   return (
     <div className="w-full space-y-2 pb-20" ref={listRef}>
       {items.map((item) => (
-        <div key={item.id} className={`relative rounded-lg p-3 flex items-start gap-3 backdrop-blur-sm shadow-sm transition-colors border 
+        <div key={item.id} className={`relative rounded-lg p-3 flex items-start gap-3 backdrop-blur-md shadow-sm transition-colors border 
             ${item.isCC 
-                ? (isLightTheme ? 'border-red-300 bg-red-50' : 'border-red-500/40 bg-red-900/10') 
-                : (isLightTheme ? 'bg-white/80 border-gray-200' : 'bg-white/5 border-white/10')
+                ? (isLightTheme ? 'border-red-300 bg-red-50/80' : 'border-red-500/40 bg-red-900/20') 
+                : (isLightTheme ? 'bg-white/70 border-gray-200' : 'bg-black/20 border-white/5')
             }
         `}>
             {/* Drag Handle */}

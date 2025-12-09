@@ -72,7 +72,7 @@ const SpellRow: React.FC<{ spell: ChampionSpell; hotkey: string; haste: number; 
     <div className={`p-3 rounded-lg border flex gap-3 mb-2 shadow-sm transition-colors ${
         isLightTheme 
         ? (isCC ? 'bg-red-50 border-red-200' : 'bg-gray-100 border-gray-200') 
-        : (isCC ? 'bg-black/20 border-red-500/30' : 'bg-black/20 border-white/5')
+        : (isCC ? 'bg-red-900/10 border-red-500/30' : 'bg-black/20 border-white/5')
     }`}>
         <div className="relative shrink-0">
             <img 
@@ -119,11 +119,11 @@ const ChampionDetailCard: React.FC<ChampionDetailCardProps> = ({ champion, globa
   if (!champion) return null;
 
   const version = champion.version || '14.1.1';
-  const isLightTheme = theme === 'Light' || theme === 'Piltover' || theme === 'Winter Wonder';
+  const isLightTheme = theme === 'Light' || theme === 'Piltover' || theme === 'Winter Wonder' || theme === 'Ionia';
 
   return (
     <div id={id} className={`rounded-xl overflow-hidden border shadow-lg mb-4 scroll-mt-32 transition-colors ${
-        isLightTheme ? 'bg-white border-gray-200' : 'bg-gray-900/80 border-white/10'
+        isLightTheme ? 'bg-white border-gray-200' : 'bg-black/40 border-white/10 backdrop-blur-md'
     }`}>
       {/* Header Splash */}
       <div className="relative h-32 overflow-hidden group">
@@ -132,7 +132,7 @@ const ChampionDetailCard: React.FC<ChampionDetailCardProps> = ({ champion, globa
             alt={champion.name} 
             className="w-full h-full object-cover object-top opacity-60 mask-image-gradient transition-all duration-700 ease-out group-hover:scale-105 group-hover:opacity-100 group-hover:brightness-110"
         />
-        <div className={`absolute bottom-0 left-0 w-full p-3 bg-gradient-to-t ${isLightTheme ? 'from-white via-white/80 to-transparent' : 'from-gray-900 to-transparent'}`}>
+        <div className={`absolute bottom-0 left-0 w-full p-3 bg-gradient-to-t ${isLightTheme ? 'from-white via-white/80 to-transparent' : 'from-black/80 to-transparent'}`}>
             <h2 className={`text-2xl font-bold tracking-wide drop-shadow-md ${isLightTheme ? 'text-gray-900' : 'text-white'}`}>{champion.name}</h2>
             <p className={`text-sm drop-shadow ${isLightTheme ? 'text-gray-500' : 'text-gray-300'}`}>{champion.title}</p>
         </div>

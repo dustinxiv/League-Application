@@ -17,19 +17,19 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ champions, theme }) => {
   const [sortType, setSortType] = useState<SortType>('Value');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
-  const isLightTheme = theme === 'Light' || theme === 'Piltover' || theme === 'Winter Wonder';
+  const isLightTheme = theme === 'Light' || theme === 'Piltover' || theme === 'Winter Wonder' || theme === 'Ionia';
 
   const getThemeColor = (idx: number) => {
     const bases: Record<string, string[]> = {
         'Dark': ['#3b82f6', '#8b5cf6', '#ec4899', '#f43f5e', '#f97316'],
         'Light': ['#0ea5e9', '#6366f1', '#d946ef', '#ef4444', '#f59e0b'],
         'Piltover': ['#c8aa6e', '#1a3c5a', '#cdbe91', '#052c52', '#f0e6d2'],
-        'Shadow Isles': ['#0ac8b9', '#1a4140', '#005a56', '#9efcf6', '#2d6d6a'],
-        'Bilgewater': ['#bf3b3b', '#d9a338', '#1c1815', '#6e2c2c', '#a67b2d'],
-        'Ionia': ['#d63031', '#ff7675', '#dfe6e9', '#636e72', '#b2bec3'],
-        'Shurima': ['#f1c40f', '#e67e22', '#f39c12', '#d35400', '#2c3e50'],
+        'Shadow Isles': ['#2dd4bf', '#0d9488', '#5eead4', '#115e59', '#ccfbf1'], // Teal/Mint ghosts
+        'Bilgewater': ['#ef4444', '#f59e0b', '#78350f', '#b91c1c', '#d97706'], // Red/Gold/Rust
+        'Ionia': ['#f472b6', '#34d399', '#60a5fa', '#fb7185', '#818cf8'], // Pink/Teal/Pastel
+        'Shurima': ['#fbbf24', '#d97706', '#fcd34d', '#92400e', '#fef3c7'], // Bright Gold/Amber
         'iOS 18 Glass': ['#0a84ff', '#5e5ce6', '#bf5af2', '#ff375f', '#64d2ff'],
-        'Winter Wonder': ['#0891b2', '#0ea5e9', '#0284c7', '#2563eb', '#7c3aed'], // Darker Icy Blue/Purples for Light BG
+        'Winter Wonder': ['#0891b2', '#0ea5e9', '#0284c7', '#2563eb', '#7c3aed'], 
     };
     const palette = bases[theme] || bases['Dark'];
     return palette[idx % palette.length];
@@ -153,7 +153,11 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ champions, theme }) => {
   return (
     <div className="w-full pb-24 space-y-4">
       {/* Controls Container */}
-      <div className={`p-3 rounded-lg border flex flex-col gap-3 shadow-sm ${isLightTheme ? 'bg-white border-gray-200' : 'bg-black/20 border-white/5'}`}>
+      <div className={`p-3 rounded-xl border flex flex-col gap-3 shadow-sm transition-colors ${
+          isLightTheme 
+          ? 'bg-white/70 border-gray-200' 
+          : 'bg-black/20 border-white/5 backdrop-blur-md'
+      }`}>
           
           {/* Top Row: Category & Filter */}
           <div className={`flex flex-wrap items-center justify-between border-b pb-2 gap-2 ${isLightTheme ? 'border-gray-200' : 'border-white/5'}`}>
@@ -164,10 +168,10 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ champions, theme }) => {
                 <select 
                     value={activeCategory}
                     onChange={(e) => setActiveCategory(e.target.value as any)}
-                    className={`text-xs font-bold rounded border px-3 py-1.5 outline-none cursor-pointer ${
+                    className={`text-xs font-bold rounded border px-3 py-1.5 outline-none cursor-pointer transition-colors ${
                         isLightTheme 
-                        ? 'bg-gray-100 text-gray-800 border-gray-200' 
-                        : 'bg-gray-800 text-white border-white/10'
+                        ? 'bg-white text-gray-800 border-gray-200' 
+                        : 'bg-black/30 text-white border-white/10'
                     }`}
                 >
                     <option value="Ultimates">Ultimates</option>
@@ -182,10 +186,10 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ champions, theme }) => {
                 <select 
                     value={filterType}
                     onChange={(e) => setFilterType(e.target.value as FilterType)}
-                    className={`text-xs font-bold rounded border px-3 py-1.5 outline-none cursor-pointer ${
+                    className={`text-xs font-bold rounded border px-3 py-1.5 outline-none cursor-pointer transition-colors ${
                         isLightTheme 
-                        ? 'bg-gray-100 text-gray-800 border-gray-200' 
-                        : 'bg-gray-800 text-white border-white/10'
+                        ? 'bg-white text-gray-800 border-gray-200' 
+                        : 'bg-black/30 text-white border-white/10'
                     }`}
                 >
                     <option value="All">All Players</option>
@@ -214,10 +218,10 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ champions, theme }) => {
                 <select 
                     value={sortType}
                     onChange={(e) => setSortType(e.target.value as SortType)}
-                    className={`text-xs font-bold rounded border px-3 py-1.5 outline-none cursor-pointer ${
+                    className={`text-xs font-bold rounded border px-3 py-1.5 outline-none cursor-pointer transition-colors ${
                         isLightTheme 
-                        ? 'bg-gray-100 text-gray-800 border-gray-200' 
-                        : 'bg-gray-800 text-white border-white/10'
+                        ? 'bg-white text-gray-800 border-gray-200' 
+                        : 'bg-black/30 text-white border-white/10'
                     }`}
                 >
                     <option value="Value">By Value</option>
@@ -229,8 +233,8 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ champions, theme }) => {
                     onClick={() => setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc')}
                     className={`border rounded px-2 py-1.5 transition-colors ${
                         isLightTheme 
-                        ? 'bg-gray-100 hover:bg-gray-200 border-gray-200' 
-                        : 'bg-gray-800 hover:bg-gray-700 border-white/10'
+                        ? 'bg-white hover:bg-gray-100 border-gray-200' 
+                        : 'bg-black/30 hover:bg-white/10 border-white/10'
                     }`}
                     title={sortDirection === 'asc' ? "Ascending" : "Descending"}
                 >
@@ -252,8 +256,8 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ champions, theme }) => {
             return (
                 <div key={metric} className={`rounded-xl p-3 border animate-fade-in shadow-md transition-colors duration-300 ${
                     isLightTheme 
-                    ? 'bg-white border-gray-200' 
-                    : sortType === 'Value' ? 'border-white/20 bg-black/40' : 'border-white/5 bg-black/20'
+                    ? 'bg-white/70 border-gray-200' 
+                    : sortType === 'Value' ? 'border-white/10 bg-black/20 backdrop-blur-sm' : 'border-white/5 bg-black/10 backdrop-blur-sm'
                 }`}>
                     <div className="flex items-center justify-between mb-3 px-2">
                         <h3 className={`text-[10px] font-black uppercase tracking-[0.2em] ${isLightTheme ? 'text-gray-400' : 'text-gray-500'}`}>{metric}</h3>
@@ -289,7 +293,7 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ champions, theme }) => {
                                 />
                                 <Bar dataKey={metric} barSize={20} radius={[0, 4, 4, 0]} animationDuration={500}>
                                     {sortedData.map((entry, index) => (
-                                        <Cell key={`cell-${index}`} fill={getThemeColor(index)} opacity={sortType === 'Value' ? 1 : 0.6} />
+                                        <Cell key={`cell-${index}`} fill={getThemeColor(index)} opacity={sortType === 'Value' ? 1 : 0.8} />
                                     ))}
                                     <LabelList dataKey={metric} position="right" fill={isLightTheme ? "#4b5563" : "#9ca3af"} fontSize={11} fontWeight="bold" />
                                 </Bar>

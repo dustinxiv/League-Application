@@ -50,8 +50,8 @@ const PlayerCard: React.FC<{ p: EnrichedParticipant, onClick?: (name: string) =>
     <div 
         className={`flex items-center gap-3 p-2 border rounded-lg mb-2 cursor-pointer transition-colors active:scale-95 transform ${
             isLightTheme 
-            ? 'bg-white border-gray-200 hover:bg-gray-50' 
-            : 'bg-white/5 border-white/5 hover:bg-white/10'
+            ? 'bg-white/80 border-gray-200 hover:bg-white' 
+            : 'bg-black/20 border-white/5 hover:bg-black/40 backdrop-blur-sm'
         }`}
         onClick={() => onClick && p.championName && onClick(p.championName)}
     >
@@ -114,7 +114,7 @@ const PlayerCard: React.FC<{ p: EnrichedParticipant, onClick?: (name: string) =>
 
 const MultiSearchPanel: React.FC<MultiSearchPanelProps> = ({ participants, progress, onParticipantClick, theme }) => {
   const [copied, setCopied] = useState(false);
-  const isLightTheme = theme === 'Light' || theme === 'Piltover' || theme === 'Winter Wonder';
+  const isLightTheme = theme === 'Light' || theme === 'Piltover' || theme === 'Winter Wonder' || theme === 'Ionia';
   
   const blueTeam = participants.filter(p => p.teamId === 100);
   const redTeam = participants.filter(p => p.teamId === 200);
@@ -166,8 +166,8 @@ const MultiSearchPanel: React.FC<MultiSearchPanelProps> = ({ participants, progr
                 copied 
                 ? 'bg-green-500/20 border-green-500 text-green-400' 
                 : isLightTheme 
-                    ? 'bg-gray-100 border-gray-200 text-gray-600 hover:bg-gray-200' 
-                    : 'bg-white/5 border-white/10 text-gray-300 hover:bg-white/10 hover:text-white'
+                    ? 'bg-white/80 border-gray-200 text-gray-600 hover:bg-white' 
+                    : 'bg-white/5 border-white/10 text-gray-300 hover:bg-white/10 hover:text-white backdrop-blur-sm'
             }`}
         >
             {copied ? (
@@ -187,7 +187,7 @@ const MultiSearchPanel: React.FC<MultiSearchPanelProps> = ({ participants, progr
             href="https://op.gg/lol/multisearch" 
             target="_blank" 
             rel="noreferrer"
-            className="flex-1 py-3 px-2 rounded-lg text-xs font-bold uppercase tracking-wide bg-[#5383E8]/20 border border-[#5383E8]/50 text-[#5383E8] hover:bg-[#5383E8]/30 transition-all flex items-center justify-center gap-2"
+            className="flex-1 py-3 px-2 rounded-lg text-xs font-bold uppercase tracking-wide bg-[#5383E8]/20 border border-[#5383E8]/50 text-[#5383E8] hover:bg-[#5383E8]/30 transition-all flex items-center justify-center gap-2 backdrop-blur-sm"
         >
             <span>Open OP.GG</span>
             <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>

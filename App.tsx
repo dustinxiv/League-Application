@@ -18,7 +18,7 @@ const IconStudio = () => <svg className="w-6 h-6" fill="none" stroke="currentCol
 
 type Tab = 'Scout' | 'Details' | 'Stats' | 'Studio';
 
-const APP_VERSION = '1.2';
+const APP_VERSION = '1.5';
 
 const App: React.FC = () => {
   const [theme, setTheme] = useState<Theme>('Dark');
@@ -67,14 +67,18 @@ const App: React.FC = () => {
   const getThemeClasses = () => {
       switch (theme) {
           case 'Light': return 'bg-gray-100 text-gray-900';
-          case 'Piltover': return 'bg-[#f0e6d2] text-[#1a3c5a]';
-          case 'Winter Wonder': return 'bg-gradient-to-br from-slate-50 via-cyan-50 to-blue-100 text-slate-800'; // Light Mode
+          case 'Piltover': return 'bg-[#e8dec0] text-[#1e293b]';
+          case 'Winter Wonder': return 'bg-gradient-to-br from-slate-50 via-cyan-50 to-blue-100 text-slate-800'; 
           case 'iOS 18 Glass': return 'bg-black text-white';
+          case 'Shadow Isles': return 'bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-[#0f2e2e] via-[#041212] to-[#020606] text-teal-100';
+          case 'Bilgewater': return 'bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-[#2d2016] via-[#1a120b] to-[#0c0805] text-[#e0d6c2]';
+          case 'Ionia': return 'bg-gradient-to-br from-[#fdfbf7] via-[#f7eff2] to-[#e8f4f8] text-gray-800';
+          case 'Shurima': return 'bg-gradient-to-b from-[#1f1a0e] via-[#141008] to-[#0a0804] text-[#e6d0a1]';
           default: return 'bg-gray-950 text-gray-100';
       }
   };
 
-  const isLightTheme = theme === 'Light' || theme === 'Piltover' || theme === 'Winter Wonder';
+  const isLightTheme = theme === 'Light' || theme === 'Piltover' || theme === 'Winter Wonder' || theme === 'Ionia';
 
   // Apply body background
   useEffect(() => {
@@ -227,129 +231,144 @@ const App: React.FC = () => {
 
   return (
     <div className={`min-h-screen transition-colors duration-500 ${getThemeClasses()} pb-10`}>
-        {/* Header */}
-        <header className={`p-4 sticky top-0 z-50 backdrop-blur-md border-b shadow-sm ${isLightTheme ? 'bg-white/70 border-gray-200' : 'bg-black/40 border-white/10'}`}>
-            <div className="max-w-4xl mx-auto flex flex-col gap-4">
-                <div className="flex justify-between items-center">
-                    <h1 className="text-xl font-black tracking-tighter uppercase italic bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-500">
-                        LoL Gameboard
-                    </h1>
-                    <button onClick={() => setShowChangelog(true)} className="text-xs font-bold opacity-60 hover:opacity-100">
-                        v{APP_VERSION}
-                    </button>
-                </div>
-
-                {/* Search Bar */}
-                <div className="flex gap-2 items-center">
-                    <select 
-                        value={region} onChange={e => setRegion(e.target.value)}
-                        className={`w-18 text-xs font-bold rounded-lg px-1 py-2 outline-none border ${isLightTheme ? 'bg-white border-gray-300 text-gray-800' : 'bg-gray-800 border-gray-700 text-white'}`}
-                    >
-                        <option value="NA">NA</option>
-                        <option value="EUW">EUW</option>
-                        <option value="KR">KR</option>
-                    </select>
-                    <input 
-                        type="text" placeholder="Name" value={gameName} onChange={e => setGameName(e.target.value)}
-                        onPaste={handlePaste}
-                        className={`flex-1 min-w-0 text-xs font-bold rounded-lg px-3 py-2 outline-none border ${isLightTheme ? 'bg-white border-gray-300 text-gray-800 placeholder-gray-400' : 'bg-gray-800 border-gray-700 text-white placeholder-gray-500'}`}
-                    />
-                     <input 
-                        type="text" placeholder="#Tag" value={tagLine} onChange={e => setTagLine(e.target.value)}
-                        className={`w-16 text-xs font-bold rounded-lg px-2 py-2 outline-none border ${isLightTheme ? 'bg-white border-gray-300 text-gray-800 placeholder-gray-400' : 'bg-gray-800 border-gray-700 text-white placeholder-gray-500'}`}
-                    />
-                    
-                    {/* Favorite Toggle */}
-                    <button 
-                        onClick={toggleFavorite}
-                        className={`p-2 rounded-lg border transition-all ${
-                            isCurrentFavorite 
-                            ? 'bg-yellow-500/20 border-yellow-500 text-yellow-500' 
-                            : isLightTheme ? 'bg-white border-gray-300 text-gray-400' : 'bg-gray-800 border-gray-700 text-gray-500'
-                        }`}
-                        title="Save Account"
-                    >
-                        <svg className="w-5 h-5" fill={isCurrentFavorite ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" /></svg>
-                    </button>
-
-                    <button 
-                        onClick={handleScout} 
-                        disabled={isLoading}
-                        className="bg-blue-600 hover:bg-blue-500 text-white rounded-lg px-4 py-2 font-bold shadow-lg disabled:opacity-50"
-                    >
-                        {isLoading ? '...' : <IconScout />}
-                    </button>
-                </div>
-
-                {/* Favorites List */}
-                {favorites.length > 0 && (
-                    <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
-                        {favorites.map((fav, i) => (
-                            <div 
-                                key={i}
-                                onClick={() => loadFavorite(fav)}
-                                className={`shrink-0 flex items-center gap-2 px-3 py-1.5 rounded-full text-[10px] font-bold border cursor-pointer transition-colors ${
-                                    isLightTheme 
-                                    ? 'bg-white border-gray-300 hover:bg-gray-100 text-gray-700 shadow-sm' 
-                                    : 'bg-white/10 border-white/10 hover:bg-white/20 text-gray-200'
-                                }`}
-                            >
-                                <span>{fav.gameName} <span className="opacity-50">#{fav.tagLine}</span></span>
-                                <span className={`text-[9px] uppercase px-1 rounded ${isLightTheme ? 'bg-gray-200' : 'bg-black/30'}`}>{fav.region}</span>
-                                <button 
-                                    onClick={(e) => removeFavorite(e, fav)}
-                                    className="ml-1 hover:text-red-400 p-0.5"
-                                >
-                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                                </button>
-                            </div>
-                        ))}
+        
+        {/* Sticky Header Wrapper - Consolidated to prevent overlapping */}
+        <div className="sticky top-0 z-50 flex flex-col">
+            <header className={`p-4 backdrop-blur-xl border-b shadow-sm transition-colors duration-500 ${isLightTheme ? 'bg-white/60 border-gray-200/50' : 'bg-black/20 border-white/5'}`}>
+                <div className="max-w-4xl mx-auto flex flex-col gap-4">
+                    <div className="flex justify-between items-center">
+                        <h1 className="text-xl font-black tracking-tighter uppercase italic bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-500 drop-shadow-sm">
+                            LoL Gameboard
+                        </h1>
+                        <button onClick={() => setShowChangelog(true)} className="text-xs font-bold opacity-60 hover:opacity-100">
+                            v{APP_VERSION}
+                        </button>
                     </div>
-                )}
 
-                {error && <div className="text-red-500 text-xs font-bold text-center bg-red-500/10 p-2 rounded">{error}</div>}
-            
-                {/* Theme Selector */}
-                <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar border-t border-gray-500/10 pt-2">
-                    {['Dark', 'Light', 'Winter Wonder', 'Piltover', 'iOS 18 Glass'].map(t => (
-                        <button 
-                            key={t}
-                            onClick={() => handleSetTheme(t as Theme)}
-                            className={`whitespace-nowrap px-3 py-1 rounded-full text-[10px] font-bold border transition-all ${
-                                theme === t 
-                                ? 'bg-blue-500 text-white border-blue-500' 
-                                : isLightTheme ? 'bg-white text-gray-600 border-gray-300' : 'bg-gray-800 text-gray-400 border-gray-700'
+                    {/* Search Bar */}
+                    <div className="flex gap-2 items-center">
+                        <select 
+                            value={region} onChange={e => setRegion(e.target.value)}
+                            className={`w-18 text-xs font-bold rounded-lg px-1 py-2 outline-none border transition-colors ${
+                                isLightTheme 
+                                ? 'bg-white/80 border-gray-300 text-gray-800' 
+                                : 'bg-black/20 border-white/10 text-white backdrop-blur-sm focus:bg-black/40'
                             }`}
                         >
-                            {t}
+                            <option value="NA">NA</option>
+                            <option value="EUW">EUW</option>
+                            <option value="KR">KR</option>
+                        </select>
+                        <input 
+                            type="text" placeholder="Name" value={gameName} onChange={e => setGameName(e.target.value)}
+                            onPaste={handlePaste}
+                            className={`flex-1 min-w-0 text-xs font-bold rounded-lg px-3 py-2 outline-none border transition-colors ${
+                                isLightTheme 
+                                ? 'bg-white/80 border-gray-300 text-gray-800 placeholder-gray-400' 
+                                : 'bg-black/20 border-white/10 text-white placeholder-white/30 backdrop-blur-sm focus:bg-black/40'
+                            }`}
+                        />
+                        <input 
+                            type="text" placeholder="#Tag" value={tagLine} onChange={e => setTagLine(e.target.value)}
+                            className={`w-16 text-xs font-bold rounded-lg px-2 py-2 outline-none border transition-colors ${
+                                isLightTheme 
+                                ? 'bg-white/80 border-gray-300 text-gray-800 placeholder-gray-400' 
+                                : 'bg-black/20 border-white/10 text-white placeholder-white/30 backdrop-blur-sm focus:bg-black/40'
+                            }`}
+                        />
+                        
+                        {/* Favorite Toggle */}
+                        <button 
+                            onClick={toggleFavorite}
+                            className={`p-2 rounded-lg border transition-all ${
+                                isCurrentFavorite 
+                                ? 'bg-yellow-500/20 border-yellow-500 text-yellow-500' 
+                                : isLightTheme ? 'bg-white/80 border-gray-300 text-gray-400' : 'bg-black/20 border-white/10 text-gray-400'
+                            }`}
+                            title="Save Account"
+                        >
+                            <svg className="w-5 h-5" fill={isCurrentFavorite ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" /></svg>
+                        </button>
+
+                        <button 
+                            onClick={handleScout} 
+                            disabled={isLoading}
+                            className="bg-blue-600 hover:bg-blue-500 text-white rounded-lg px-4 py-2 font-bold shadow-lg disabled:opacity-50 transition-transform active:scale-95"
+                        >
+                            {isLoading ? '...' : <IconScout />}
+                        </button>
+                    </div>
+
+                    {/* Favorites List */}
+                    {favorites.length > 0 && (
+                        <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
+                            {favorites.map((fav, i) => (
+                                <div 
+                                    key={i}
+                                    onClick={() => loadFavorite(fav)}
+                                    className={`shrink-0 flex items-center gap-2 px-3 py-1.5 rounded-full text-[10px] font-bold border cursor-pointer transition-colors ${
+                                        isLightTheme 
+                                        ? 'bg-white border-gray-300 hover:bg-gray-100 text-gray-700 shadow-sm' 
+                                        : 'bg-white/5 border-white/10 hover:bg-white/15 text-gray-300 backdrop-blur-md'
+                                    }`}
+                                >
+                                    <span>{fav.gameName} <span className="opacity-50">#{fav.tagLine}</span></span>
+                                    <span className={`text-[9px] uppercase px-1 rounded ${isLightTheme ? 'bg-gray-200' : 'bg-black/30'}`}>{fav.region}</span>
+                                    <button 
+                                        onClick={(e) => removeFavorite(e, fav)}
+                                        className="ml-1 hover:text-red-400 p-0.5"
+                                    >
+                                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    {error && <div className="text-red-500 text-xs font-bold text-center bg-red-500/10 p-2 rounded border border-red-500/20">{error}</div>}
+                
+                    {/* Theme Selector */}
+                    <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar border-t border-gray-500/10 pt-2">
+                        {['Dark', 'Light', 'Shadow Isles', 'Bilgewater', 'Shurima', 'Ionia', 'Piltover', 'Winter Wonder', 'iOS 18 Glass'].map(t => (
+                            <button 
+                                key={t}
+                                onClick={() => handleSetTheme(t as Theme)}
+                                className={`whitespace-nowrap px-3 py-1 rounded-full text-[10px] font-bold border transition-all ${
+                                    theme === t 
+                                    ? 'bg-blue-600 text-white border-blue-500 shadow-md transform scale-105' 
+                                    : isLightTheme ? 'bg-white text-gray-600 border-gray-300' : 'bg-white/5 text-gray-400 border-white/10 hover:bg-white/10'
+                                }`}
+                            >
+                                {t}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            </header>
+
+            {/* Tabs */}
+            <div className={`backdrop-blur-xl border-b transition-colors duration-500 ${isLightTheme ? 'bg-white/70 border-gray-200/50' : 'bg-black/30 border-white/5'}`}>
+                <div className="max-w-4xl mx-auto flex justify-around p-1">
+                    {[
+                        { id: 'Scout', icon: <IconScout />, label: 'Live' },
+                        { id: 'Details', icon: <IconDetails />, label: 'Details' },
+                        { id: 'Stats', icon: <IconStats />, label: 'Graphs' },
+                        { id: 'Studio', icon: <IconStudio />, label: 'Studio' },
+                    ].map((tab) => (
+                        <button
+                            key={tab.id}
+                            onClick={() => setActiveTab(tab.id as Tab)}
+                            className={`flex-1 flex flex-col items-center gap-1 py-2 rounded-lg transition-all duration-300 ${
+                                activeTab === tab.id 
+                                ? 'text-blue-500 bg-blue-500/10 scale-105' 
+                                : isLightTheme ? 'text-gray-500 hover:bg-gray-100' : 'text-gray-400 hover:bg-white/5'
+                            }`}
+                        >
+                            {tab.icon}
+                            <span className="text-[10px] font-bold uppercase">{tab.label}</span>
                         </button>
                     ))}
                 </div>
-            </div>
-        </header>
-
-        {/* Tabs */}
-        <div className={`sticky top-[180px] z-40 backdrop-blur-md border-b ${isLightTheme ? 'bg-white/80 border-gray-200' : 'bg-black/60 border-white/5'}`}>
-            <div className="max-w-4xl mx-auto flex justify-around p-1">
-                {[
-                    { id: 'Scout', icon: <IconScout />, label: 'Live' },
-                    { id: 'Details', icon: <IconDetails />, label: 'Details' },
-                    { id: 'Stats', icon: <IconStats />, label: 'Graphs' },
-                    { id: 'Studio', icon: <IconStudio />, label: 'Studio' },
-                ].map((tab) => (
-                    <button
-                        key={tab.id}
-                        onClick={() => setActiveTab(tab.id as Tab)}
-                        className={`flex-1 flex flex-col items-center gap-1 py-2 rounded-lg transition-colors ${
-                            activeTab === tab.id 
-                            ? 'text-blue-500 bg-blue-500/10' 
-                            : isLightTheme ? 'text-gray-500 hover:bg-gray-100' : 'text-gray-500 hover:bg-white/5'
-                        }`}
-                    >
-                        {tab.icon}
-                        <span className="text-[10px] font-bold uppercase">{tab.label}</span>
-                    </button>
-                ))}
             </div>
         </div>
 
@@ -368,7 +387,7 @@ const App: React.FC = () => {
                     {/* High Priority Abilities */}
                     {champions.length > 0 && (
                         <div>
-                            <h2 className={`text-sm font-bold uppercase mb-3 ${isLightTheme ? 'text-gray-600' : 'text-gray-400'}`}>High Priority Spells</h2>
+                            <h2 className={`text-sm font-bold uppercase mb-3 px-1 ${isLightTheme ? 'text-gray-600' : 'text-gray-400'}`}>High Priority Spells</h2>
                             <AbilitiesPanel champions={champions} globalHaste={0} theme={theme} />
                         </div>
                     )}
@@ -387,9 +406,10 @@ const App: React.FC = () => {
                                         const el = document.getElementById(`champ-${c.id}`);
                                         if(el) el.scrollIntoView({behavior: 'smooth'});
                                     }}
-                                    className="shrink-0 relative"
+                                    className="shrink-0 relative group"
                                 >
-                                    <img src={`https://ddragon.leagueoflegends.com/cdn/${c.version}/img/champion/${c.image.full}`} className="w-10 h-10 rounded-full border-2 border-transparent hover:border-blue-500 transition-colors" />
+                                    <div className="absolute inset-0 rounded-full border-2 border-transparent group-hover:border-blue-500 transition-colors z-10"></div>
+                                    <img src={`https://ddragon.leagueoflegends.com/cdn/${c.version}/img/champion/${c.image.full}`} className="w-10 h-10 rounded-full shadow-lg" />
                                 </button>
                             ))}
                         </div>
@@ -412,7 +432,7 @@ const App: React.FC = () => {
             )}
         </main>
 
-        <ChangelogModal isOpen={showChangelog} onClose={() => setShowChangelog(false)} accentColor="text-blue-400" />
+        <ChangelogModal isOpen={showChangelog} onClose={() => setShowChangelog(false)} accentColor="text-blue-400" theme={theme} />
     </div>
   );
 };
