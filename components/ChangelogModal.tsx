@@ -16,7 +16,7 @@ const ChangelogModal: React.FC<ChangelogModalProps> = ({ isOpen, onClose, accent
         {/* Header */}
         <div className="p-4 border-b border-white/10 flex justify-between items-center bg-white/5">
           <h2 className={`text-lg font-bold uppercase tracking-wider ${accentColor}`}>
-            Patch Notes: v1.1
+            Patch Notes: v1.2
           </h2>
           <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
@@ -28,23 +28,21 @@ const ChangelogModal: React.FC<ChangelogModalProps> = ({ isOpen, onClose, accent
           
           <section>
             <h3 className="text-white font-bold mb-2 flex items-center gap-2">
-              <span className="text-green-400">●</span> Stats Panel 2.0
+              <span className="text-cyan-400">●</span> Winter Wonder Theme
             </h3>
             <ul className="list-disc pl-5 space-y-1 text-gray-400">
-              <li><strong>Visual Upgrade:</strong> Champion portraits now appear directly on the charts for instant recognition.</li>
-              <li><strong>Smart Sorting:</strong> Graphs now automatically sort from Largest to Smallest by default.</li>
-              <li><strong>Global Controls:</strong> Added dropdowns to Filter by Lane/Team and Sort Alphabetically or by Value across all graphs simultaneously.</li>
-              <li><strong>Category Grouping:</strong> Stats are now organized into Ultimates (default), Combat, and Defense categories.</li>
+              <li><strong>New Look:</strong> Winter Wonder is now a bright, icy "Light Mode" theme.</li>
+              <li><strong>UI Update:</strong> Adjusted card backgrounds and text contrast for better visibility on light backgrounds.</li>
             </ul>
           </section>
 
           <section>
             <h3 className="text-white font-bold mb-2 flex items-center gap-2">
-              <span className="text-blue-400">●</span> Multi-Search Enhancements
+              <span className="text-green-400">●</span> Stats Panel 2.0
             </h3>
             <ul className="list-disc pl-5 space-y-1 text-gray-400">
-              <li><strong>Navigation:</strong> Clicking a player card in the Multi tab now jumps directly to that Champion's Details tab.</li>
-              <li><strong>OP.GG Integration:</strong> Added a "Copy for OP.GG" button to easily paste lobby names into external sites.</li>
+              <li><strong>Visual Upgrade:</strong> Champion portraits now appear directly on the charts for instant recognition.</li>
+              <li><strong>Smart Sorting:</strong> Graphs now automatically sort from Largest to Smallest by default.</li>
             </ul>
           </section>
 
@@ -53,15 +51,14 @@ const ChangelogModal: React.FC<ChangelogModalProps> = ({ isOpen, onClose, accent
               <span className="text-purple-400">●</span> Logic & Styling Updates
             </h3>
             <ul className="list-disc pl-5 space-y-1 text-gray-400">
-              <li><strong>CC Detection Fix:</strong> Improved Regex to correctly identify CC abilities (fixed Seraphine R, Kha'zix R false positives).</li>
-              <li><strong>New Theme:</strong> Added "iOS 18 Glass" theme (High contrast dark mode with vivid blue accents).</li>
-              <li><strong>Navigation:</strong> Added a sticky "Champion Navigator" bar in the Details tab for quick switching.</li>
+              <li><strong>CC Detection Fix:</strong> Improved Regex to correctly identify CC abilities.</li>
+              <li><strong>New Theme:</strong> Added "iOS 18 Glass" theme.</li>
             </ul>
           </section>
 
           <div className="bg-white/5 p-3 rounded border border-white/5 text-xs font-mono text-gray-500">
              Github Commit Message:<br/>
-             "Feat: Stats Panel overhaul (Icons, Sort, Filter), Multi-tab nav links, CC Logic fixes, iOS 18 Theme."
+             "Update Winter Wonder to light mode, v1.2 bump."
           </div>
 
         </div>

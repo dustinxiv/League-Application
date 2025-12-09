@@ -1,10 +1,12 @@
+
 import React, { useEffect, useState, useRef } from 'react';
 import Sortable from 'sortablejs';
-import { ChampionDetail, ChampionSpell } from '../types';
+import { ChampionDetail, ChampionSpell, Theme } from '../types';
 
 interface AbilitiesPanelProps {
   champions: ChampionDetail[];
   globalHaste: number;
+  theme: Theme;
 }
 
 interface AbilityItem {
@@ -23,10 +25,12 @@ interface AbilityItem {
 // Updated Regex: Matches root words followed by any characters (e.g., 'charm' matches 'charms', 'charmed')
 const CC_REGEX = /\b(stun|root|suppress|airborne|knock|sleep|charm|fear|taunt|suspen|ground|silence|blind|polymorph|slow|snare|flee|berserk|drowsy)\w*/i;
 
-const AbilitiesPanel: React.FC<AbilitiesPanelProps> = ({ champions, globalHaste }) => {
+const AbilitiesPanel: React.FC<AbilitiesPanelProps> = ({ champions, globalHaste, theme }) => {
   const listRef = useRef<HTMLDivElement>(null);
   const sortableInstance = useRef<Sortable | null>(null);
   const [items, setItems] = useState<AbilityItem[]>([]);
+
+  const isLightTheme = theme === 'Light' || theme === 'Piltover' || theme === 'Winter Wonder';
 
   // Helper to parse tooltip data {{ e1 }} and {{ a1 }}
   const parseTooltip = (spell: ChampionSpell) => {
@@ -49,14 +53,14 @@ const AbilitiesPanel: React.FC<AbilitiesPanelProps> = ({ champions, globalHaste 
             const c = Array.isArray(v.coeff) ? v.coeff[0] : v.coeff;
             const ratio = Math.round(c * 100);
             
-            let statColor = 'text-gray-400';
+            let statColor = isLightTheme ? 'text-gray-500' : 'text-gray-400';
             let statName = v.link || '';
             
-            if (statName.includes('attackdamage')) { statName = 'AD'; statColor = 'text-orange-400'; }
-            else if (statName.includes('spelldamage')) { statName = 'AP'; statColor = 'text-purple-400'; }
-            else if (statName.includes('health')) { statName = 'HP'; statColor = 'text-green-400'; }
-            else if (statName.includes('armor')) { statName = 'Def'; statColor = 'text-yellow-400'; }
-            else if (statName.includes('spellblock')) { statName = 'MR'; statColor = 'text-blue-400'; }
+            if (statName.includes('attackdamage')) { statName = 'AD'; statColor = 'text-orange-500'; }
+            else if (statName.includes('spelldamage')) { statName = 'AP'; statColor = 'text-purple-500'; }
+            else if (statName.includes('health')) { statName = 'HP'; statColor = 'text-green-600'; }
+            else if (statName.includes('armor')) { statName = 'Def'; statColor = 'text-yellow-600'; }
+            else if (statName.includes('spellblock')) { statName = 'MR'; statColor = 'text-blue-500'; }
 
             return `<span class="${statColor} font-bold">(${ratio}% ${statName})</span>`;
         }
@@ -117,7 +121,7 @@ const AbilitiesPanel: React.FC<AbilitiesPanelProps> = ({ champions, globalHaste 
     newItems.sort((a, b) => b.priorityScore - a.priorityScore);
     setItems(newItems);
 
-  }, [champions]);
+  }, [champions, theme]);
 
   // Initialize Sortable
   useEffect(() => {
@@ -148,15 +152,20 @@ const AbilitiesPanel: React.FC<AbilitiesPanelProps> = ({ champions, globalHaste 
   };
 
   if (items.length === 0) {
-      return <div className="p-8 text-center text-gray-400">No high priority abilities found or no champions selected.</div>;
+      return <div className={`p-8 text-center ${isLightTheme ? 'text-gray-400' : 'text-gray-600'}`}>No high priority abilities found or no champions selected.</div>;
   }
 
   return (
     <div className="w-full space-y-2 pb-20" ref={listRef}>
       {items.map((item) => (
-        <div key={item.id} className={`relative bg-white/5 border ${item.isCC ? 'border-red-500/40 bg-red-900/10' : 'border-white/10'} rounded-lg p-3 flex items-start gap-3 backdrop-blur-sm shadow-sm`}>
+        <div key={item.id} className={`relative rounded-lg p-3 flex items-start gap-3 backdrop-blur-sm shadow-sm transition-colors border 
+            ${item.isCC 
+                ? (isLightTheme ? 'border-red-300 bg-red-50' : 'border-red-500/40 bg-red-900/10') 
+                : (isLightTheme ? 'bg-white/80 border-gray-200' : 'bg-white/5 border-white/10')
+            }
+        `}>
             {/* Drag Handle */}
-            <div className="drag-handle cursor-move text-gray-600 py-4 pr-1 hover:text-gray-300">
+            <div className={`drag-handle cursor-move py-4 pr-1 hover:opacity-100 opacity-60 ${isLightTheme ? 'text-gray-400' : 'text-gray-600'}`}>
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" /></svg>
             </div>
 
@@ -179,7 +188,7 @@ const AbilitiesPanel: React.FC<AbilitiesPanelProps> = ({ champions, globalHaste 
             <div className="flex-1 min-w-0">
                 <div className="flex justify-between items-start mb-1">
                     <div className="flex items-center gap-2 flex-wrap">
-                        <h3 className="text-white font-bold text-sm leading-tight">{item.spell.name}</h3>
+                        <h3 className={`font-bold text-sm leading-tight ${isLightTheme ? 'text-gray-900' : 'text-white'}`}>{item.spell.name}</h3>
                         {item.isCC && (
                             <span className="text-[9px] font-black uppercase tracking-widest text-red-200 bg-red-600/80 px-1.5 py-0.5 rounded shadow-sm">
                                 CC
@@ -187,7 +196,7 @@ const AbilitiesPanel: React.FC<AbilitiesPanelProps> = ({ champions, globalHaste 
                         )}
                     </div>
                     <div className="text-right shrink-0 ml-2">
-                        <span className="block text-sm text-yellow-400 font-mono font-bold leading-none">
+                        <span className="block text-sm text-yellow-500 font-mono font-bold leading-none">
                             {calculateCooldown(item.spell.cooldown)}s
                         </span>
                     </div>
@@ -195,12 +204,13 @@ const AbilitiesPanel: React.FC<AbilitiesPanelProps> = ({ champions, globalHaste 
                 
                 {/* Parsed Description */}
                 <div 
-                    className="text-xs text-gray-300 leading-relaxed mb-2 opacity-90"
+                    className={`text-xs leading-relaxed mb-2 opacity-90 ${isLightTheme ? 'text-gray-600' : 'text-gray-300'}`}
                     dangerouslySetInnerHTML={{ __html: item.parsedDescription }}
                 />
 
                 {/* Stats Grid */}
-                <div className="grid grid-cols-3 gap-y-1 gap-x-2 text-[10px] font-mono text-gray-400 bg-black/30 p-1.5 rounded border border-white/5">
+                <div className={`grid grid-cols-3 gap-y-1 gap-x-2 text-[10px] font-mono p-1.5 rounded border 
+                    ${isLightTheme ? 'bg-gray-100 text-gray-500 border-gray-200' : 'bg-black/30 text-gray-400 border-white/5'}`}>
                     <div className="flex items-center gap-1">
                         <span className="text-blue-400 font-bold">AA:</span> {item.attackRange}
                     </div>
@@ -208,7 +218,7 @@ const AbilitiesPanel: React.FC<AbilitiesPanelProps> = ({ champions, globalHaste 
                         <span className="text-purple-400 font-bold">Rng:</span> {getFormatData(item.spell.range)}
                     </div>
                     <div className="flex items-center gap-1 col-span-3">
-                         <span className="text-blue-300 font-bold">Cost:</span> {getFormatData(item.spell.cost)}
+                         <span className="text-blue-400 font-bold">Cost:</span> {getFormatData(item.spell.cost)}
                     </div>
                 </div>
             </div>

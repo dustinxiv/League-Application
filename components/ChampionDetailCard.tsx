@@ -1,17 +1,19 @@
+
 import React from 'react';
-import { ChampionDetail, ChampionSpell } from '../types';
+import { ChampionDetail, ChampionSpell, Theme } from '../types';
 
 interface ChampionDetailCardProps {
   champion: ChampionDetail;
   globalHaste: number;
   id?: string;
+  theme: Theme;
 }
 
 // Regex reused for display consistency
 // Matches root words followed by any characters (e.g., 'charm' matches 'charms', 'charmed')
 const CC_REGEX = /\b(stun|root|suppress|airborne|knock|sleep|charm|fear|taunt|suspen|ground|silence|blind|polymorph|slow|snare|flee|berserk|drowsy)\w*/i;
 
-const SpellRow: React.FC<{ spell: ChampionSpell; hotkey: string; haste: number; version: string }> = ({ spell, hotkey, haste, version }) => {
+const SpellRow: React.FC<{ spell: ChampionSpell; hotkey: string; haste: number; version: string; isLightTheme: boolean }> = ({ spell, hotkey, haste, version, isLightTheme }) => {
   const isCC = CC_REGEX.test(spell.description);
 
   const getValueDisplay = (val: number | number[]) => {
@@ -49,14 +51,14 @@ const SpellRow: React.FC<{ spell: ChampionSpell; hotkey: string; haste: number; 
             const c = Array.isArray(v.coeff) ? v.coeff[0] : v.coeff;
             const ratio = Math.round(c * 100);
             
-            let statColor = 'text-gray-400';
+            let statColor = isLightTheme ? 'text-gray-500' : 'text-gray-400';
             let statName = v.link || '';
             
-            if (statName.includes('attackdamage')) { statName = 'AD'; statColor = 'text-orange-400'; }
-            else if (statName.includes('spelldamage')) { statName = 'AP'; statColor = 'text-purple-400'; }
-            else if (statName.includes('health')) { statName = 'HP'; statColor = 'text-green-400'; }
-            else if (statName.includes('armor')) { statName = 'Def'; statColor = 'text-yellow-400'; }
-            else if (statName.includes('spellblock')) { statName = 'MR'; statColor = 'text-blue-400'; }
+            if (statName.includes('attackdamage')) { statName = 'AD'; statColor = 'text-orange-500'; }
+            else if (statName.includes('spelldamage')) { statName = 'AP'; statColor = 'text-purple-500'; }
+            else if (statName.includes('health')) { statName = 'HP'; statColor = 'text-green-600'; }
+            else if (statName.includes('armor')) { statName = 'Def'; statColor = 'text-yellow-600'; }
+            else if (statName.includes('spellblock')) { statName = 'MR'; statColor = 'text-blue-500'; }
 
             return `<span class="${statColor} font-bold">(${ratio}% ${statName})</span>`;
         }
@@ -67,7 +69,11 @@ const SpellRow: React.FC<{ spell: ChampionSpell; hotkey: string; haste: number; 
   };
 
   return (
-    <div className={`bg-black/20 p-3 rounded-lg border ${isCC ? 'border-red-500/30' : 'border-white/5'} flex gap-3 mb-2 shadow-sm`}>
+    <div className={`p-3 rounded-lg border flex gap-3 mb-2 shadow-sm transition-colors ${
+        isLightTheme 
+        ? (isCC ? 'bg-red-50 border-red-200' : 'bg-gray-100 border-gray-200') 
+        : (isCC ? 'bg-black/20 border-red-500/30' : 'bg-black/20 border-white/5')
+    }`}>
         <div className="relative shrink-0">
             <img 
                 src={`https://ddragon.leagueoflegends.com/cdn/${version}/img/spell/${spell.image.full}`} 
@@ -81,22 +87,22 @@ const SpellRow: React.FC<{ spell: ChampionSpell; hotkey: string; haste: number; 
         <div className="flex-1 min-w-0">
              <div className="flex justify-between items-center mb-1">
                 <div className="flex items-center gap-2">
-                    <span className="text-sm font-bold text-gray-100 truncate">{spell.name}</span>
+                    <span className={`text-sm font-bold truncate ${isLightTheme ? 'text-gray-900' : 'text-gray-100'}`}>{spell.name}</span>
                     {isCC && <span className="text-[9px] bg-red-600 text-white px-1 rounded font-bold tracking-wider">CC</span>}
                 </div>
-                <div className="text-xs text-yellow-500 font-mono font-bold bg-yellow-500/10 px-1 rounded">
+                <div className={`text-xs font-mono font-bold px-1 rounded ${isLightTheme ? 'text-yellow-700 bg-yellow-100' : 'text-yellow-500 bg-yellow-500/10'}`}>
                     {getCooldownDisplay(spell.cooldown)}s
                 </div>
              </div>
              
              {/* Rich Description */}
              <div 
-                className="text-xs text-gray-400 leading-relaxed mb-2"
+                className={`text-xs leading-relaxed mb-2 ${isLightTheme ? 'text-gray-600' : 'text-gray-400'}`}
                 dangerouslySetInnerHTML={{ __html: parseTooltip() }}
              />
 
              {/* Footer Stats */}
-             <div className="flex gap-3 text-[10px] font-mono text-gray-500 border-t border-white/5 pt-1 mt-1">
+             <div className={`flex gap-3 text-[10px] font-mono pt-1 mt-1 border-t ${isLightTheme ? 'text-gray-500 border-gray-200' : 'text-gray-500 border-white/5'}`}>
                  <div>
                     <span className="text-purple-400">Rng:</span> {getValueDisplay(spell.range)}
                  </div>
@@ -109,13 +115,16 @@ const SpellRow: React.FC<{ spell: ChampionSpell; hotkey: string; haste: number; 
   );
 };
 
-const ChampionDetailCard: React.FC<ChampionDetailCardProps> = ({ champion, globalHaste, id }) => {
+const ChampionDetailCard: React.FC<ChampionDetailCardProps> = ({ champion, globalHaste, id, theme }) => {
   if (!champion) return null;
 
   const version = champion.version || '14.1.1';
+  const isLightTheme = theme === 'Light' || theme === 'Piltover' || theme === 'Winter Wonder';
 
   return (
-    <div id={id} className="bg-gray-900/80 rounded-xl overflow-hidden border border-white/10 shadow-lg mb-4 scroll-mt-32">
+    <div id={id} className={`rounded-xl overflow-hidden border shadow-lg mb-4 scroll-mt-32 transition-colors ${
+        isLightTheme ? 'bg-white border-gray-200' : 'bg-gray-900/80 border-white/10'
+    }`}>
       {/* Header Splash */}
       <div className="relative h-32 overflow-hidden group">
         <img 
@@ -123,23 +132,25 @@ const ChampionDetailCard: React.FC<ChampionDetailCardProps> = ({ champion, globa
             alt={champion.name} 
             className="w-full h-full object-cover object-top opacity-60 mask-image-gradient transition-all duration-700 ease-out group-hover:scale-105 group-hover:opacity-100 group-hover:brightness-110"
         />
-        <div className="absolute bottom-0 left-0 w-full p-3 bg-gradient-to-t from-gray-900 to-transparent">
-            <h2 className="text-2xl font-bold text-white tracking-wide drop-shadow-md">{champion.name}</h2>
-            <p className="text-sm text-gray-300 drop-shadow">{champion.title}</p>
+        <div className={`absolute bottom-0 left-0 w-full p-3 bg-gradient-to-t ${isLightTheme ? 'from-white via-white/80 to-transparent' : 'from-gray-900 to-transparent'}`}>
+            <h2 className={`text-2xl font-bold tracking-wide drop-shadow-md ${isLightTheme ? 'text-gray-900' : 'text-white'}`}>{champion.name}</h2>
+            <p className={`text-sm drop-shadow ${isLightTheme ? 'text-gray-500' : 'text-gray-300'}`}>{champion.title}</p>
         </div>
       </div>
 
       <div className="p-3 space-y-3">
         {/* Basic Stats */}
-        <div className="grid grid-cols-4 gap-2 text-[10px] font-mono text-gray-400 bg-black/40 p-2 rounded border border-white/5">
-            <div className="text-center"><span className="block text-gray-500 uppercase text-[9px]">Range</span><span className="text-white text-xs">{champion.stats.attackrange}</span></div>
-            <div className="text-center"><span className="block text-gray-500 uppercase text-[9px]">Move</span><span className="text-white text-xs">{champion.stats.movespeed}</span></div>
-            <div className="text-center"><span className="block text-gray-500 uppercase text-[9px]">AD</span><span className="text-white text-xs">{champion.stats.attackdamage}</span></div>
-            <div className="text-center"><span className="block text-gray-500 uppercase text-[9px]">HP</span><span className="text-white text-xs">{champion.stats.hp}</span></div>
+        <div className={`grid grid-cols-4 gap-2 text-[10px] font-mono p-2 rounded border ${
+            isLightTheme ? 'bg-gray-50 border-gray-200 text-gray-600' : 'bg-black/40 border-white/5 text-gray-400'
+        }`}>
+            <div className="text-center"><span className="block opacity-60 uppercase text-[9px]">Range</span><span className={`text-xs ${isLightTheme ? 'text-gray-900' : 'text-white'}`}>{champion.stats.attackrange}</span></div>
+            <div className="text-center"><span className="block opacity-60 uppercase text-[9px]">Move</span><span className={`text-xs ${isLightTheme ? 'text-gray-900' : 'text-white'}`}>{champion.stats.movespeed}</span></div>
+            <div className="text-center"><span className="block opacity-60 uppercase text-[9px]">AD</span><span className={`text-xs ${isLightTheme ? 'text-gray-900' : 'text-white'}`}>{champion.stats.attackdamage}</span></div>
+            <div className="text-center"><span className="block opacity-60 uppercase text-[9px]">HP</span><span className={`text-xs ${isLightTheme ? 'text-gray-900' : 'text-white'}`}>{champion.stats.hp}</span></div>
         </div>
 
         {/* Passive */}
-        <div className="flex gap-3 p-3 bg-white/5 rounded border border-white/5">
+        <div className={`flex gap-3 p-3 rounded border ${isLightTheme ? 'bg-gray-50 border-gray-200' : 'bg-white/5 border-white/5'}`}>
              <img 
                 src={`https://ddragon.leagueoflegends.com/cdn/${version}/img/passive/${champion.passive.image.full}`} 
                 alt="Passive" 
@@ -147,7 +158,7 @@ const ChampionDetailCard: React.FC<ChampionDetailCardProps> = ({ champion, globa
             />
             <div>
                 <span className="text-xs font-bold text-yellow-500 block uppercase tracking-wide mb-0.5">Passive</span>
-                <p className="text-xs text-gray-300 leading-snug">{champion.passive.description.replace(/<[^>]*>?/gm, '')}</p>
+                <p className={`text-xs leading-snug ${isLightTheme ? 'text-gray-600' : 'text-gray-300'}`}>{champion.passive.description.replace(/<[^>]*>?/gm, '')}</p>
             </div>
         </div>
 
@@ -160,6 +171,7 @@ const ChampionDetailCard: React.FC<ChampionDetailCardProps> = ({ champion, globa
                     hotkey={['Q','W','E','R'][idx]} 
                     haste={globalHaste}
                     version={version}
+                    isLightTheme={isLightTheme}
                 />
             ))}
         </div>

@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { GoogleGenAI } from "@google/genai";
 import { ChampionDetail, Theme, EnrichedParticipant } from '../types';
@@ -80,6 +81,7 @@ const StudioPanel: React.FC<StudioPanelProps> = ({ champions, participants, them
   const getThemeBorder = () => {
       switch(theme) {
           case 'iOS 18 Glass': return 'border-blue-500/50';
+          case 'Winter Wonder': return 'border-cyan-400/50';
           default: return 'border-amber-500/50';
       }
   };

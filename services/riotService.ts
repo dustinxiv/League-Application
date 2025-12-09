@@ -44,9 +44,16 @@ class RiotService {
       const response = await fetch(`https://ddragon.leagueoflegends.com/cdn/${this.version}/data/en_US/champion.json`);
       const data = await response.json();
       this.championsCache = data.data;
+      
       Object.values(this.championsCache || {}).forEach(c => {
         this.championKeyMap[c.key] = c;
       });
+
+      // MANUAL FIX: Ensure Zeri (221) is mapped if cache missed/lagged
+      if (!this.championKeyMap['221'] && this.championsCache && this.championsCache['Zeri']) {
+          this.championKeyMap['221'] = this.championsCache['Zeri'];
+      }
+
       return this.championsCache || {};
     } catch (e) {
       return {};
@@ -61,12 +68,22 @@ class RiotService {
     if (this.championDetailsCache[id]) return this.championDetailsCache[id];
     try {
       const response = await fetch(`https://ddragon.leagueoflegends.com/cdn/${this.version}/data/en_US/champion/${id}.json`);
+      if (!response.ok) return null;
+      
       const data = await response.json();
+      
+      // SAFETY CHECK: Ensure the specific ID exists in the data payload
       const detail = data.data[id] as ChampionDetail;
+      if (!detail) {
+          console.warn(`Champion details for ${id} were missing in response.`);
+          return null;
+      }
+
       if (!detail.version) detail.version = this.version;
       this.championDetailsCache[id] = detail;
       return detail;
     } catch (e) {
+      console.error(`Error fetching detail for ${id}`, e);
       return null;
     }
   }
@@ -104,7 +121,7 @@ class RiotService {
             // Handle Rate Limiting (429) - Retry logic
             if (res.status === 429) {
                 if (retries > 0) {
-                    console.warn(`Rate Limit hit. Retrying in 2s... (${retries} left)`);
+                    // console.warn(`Rate Limit hit. Retrying in 2s... (${retries} left)`);
                     await wait(2000);
                     return this.request(url, apiKey, retries - 1);
                 } else {
@@ -221,14 +238,15 @@ class RiotService {
   // --- Helper for Gemini Image Editing ---
   public async imageUrlToBase64(url: string): Promise<string | null> {
     try {
-        const response = await fetch(url);
-        if (!response.ok) throw new Error('Failed to fetch image');
+        // Try proxy first since direct fetch fails CORS on web
+        const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+        const response = await fetch(proxyUrl);
+        if (!response.ok) throw new Error('Failed to fetch image via proxy');
         const blob = await response.blob();
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
             reader.onloadend = () => {
                 const base64String = reader.result as string;
-                // Remove the "data:image/jpeg;base64," part
                 const base64Data = base64String.split(',')[1];
                 resolve(base64Data);
             };
@@ -236,25 +254,7 @@ class RiotService {
             reader.readAsDataURL(blob);
         });
     } catch (e) {
-        // Fallback: Use proxy if direct fetch failed (CORS)
-        try {
-            const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
-            const response = await fetch(proxyUrl);
-            const blob = await response.blob();
-            return new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onloadend = () => {
-                    const base64String = reader.result as string;
-                    const base64Data = base64String.split(',')[1];
-                    resolve(base64Data);
-                };
-                reader.onerror = reject;
-                reader.readAsDataURL(blob);
-            });
-        } catch (innerE) {
-            console.error('Failed to convert image to base64', innerE);
-            return null;
-        }
+        return null;
     }
   }
 

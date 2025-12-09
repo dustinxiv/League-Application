@@ -1,12 +1,13 @@
 
 import React, { useState } from 'react';
-import { EnrichedParticipant } from '../types';
+import { EnrichedParticipant, Theme } from '../types';
 import RiotService from '../services/riotService';
 
 interface MultiSearchPanelProps {
   participants: EnrichedParticipant[];
   progress: number;
   onParticipantClick?: (championName: string) => void;
+  theme: Theme;
 }
 
 const RankBadge: React.FC<{ tier: string; rank: string; lp: number }> = ({ tier, rank, lp }) => {
@@ -35,7 +36,7 @@ const RankBadge: React.FC<{ tier: string; rank: string; lp: number }> = ({ tier,
   );
 };
 
-const PlayerCard: React.FC<{ p: EnrichedParticipant, onClick?: (name: string) => void }> = ({ p, onClick }) => {
+const PlayerCard: React.FC<{ p: EnrichedParticipant, onClick?: (name: string) => void, isLightTheme: boolean }> = ({ p, onClick, isLightTheme }) => {
   const version = RiotService.getVersion();
   // Get Champion Image from ID
   const champData = RiotService.getChampionByKey(p.championId);
@@ -47,7 +48,11 @@ const PlayerCard: React.FC<{ p: EnrichedParticipant, onClick?: (name: string) =>
 
   return (
     <div 
-        className="flex items-center gap-3 p-2 bg-white/5 border border-white/5 rounded-lg mb-2 cursor-pointer hover:bg-white/10 transition-colors active:scale-95 transform"
+        className={`flex items-center gap-3 p-2 border rounded-lg mb-2 cursor-pointer transition-colors active:scale-95 transform ${
+            isLightTheme 
+            ? 'bg-white border-gray-200 hover:bg-gray-50' 
+            : 'bg-white/5 border-white/5 hover:bg-white/10'
+        }`}
         onClick={() => onClick && p.championName && onClick(p.championName)}
     >
       {/* Champ Icon */}
@@ -61,7 +66,7 @@ const PlayerCard: React.FC<{ p: EnrichedParticipant, onClick?: (name: string) =>
       {/* Info */}
       <div className="flex-1 min-w-0">
         <div className="flex justify-between items-center mb-1">
-          <div className="truncate text-xs font-bold text-gray-200">
+          <div className={`truncate text-xs font-bold ${isLightTheme ? 'text-gray-900' : 'text-gray-200'}`}>
             {p.riotId}
           </div>
           {p.isLoaded ? (
@@ -77,7 +82,7 @@ const PlayerCard: React.FC<{ p: EnrichedParticipant, onClick?: (name: string) =>
         
         <div className="flex justify-between items-center">
             {/* W/L */}
-            <div className="text-[10px] text-gray-400">
+            <div className={`text-[10px] ${isLightTheme ? 'text-gray-500' : 'text-gray-400'}`}>
                {p.isLoaded ? (
                    rank ? `${rank.wins}W ${rank.losses}L (${totalGames} Games)` : 'No recent ranked data'
                ) : (
@@ -107,13 +112,14 @@ const PlayerCard: React.FC<{ p: EnrichedParticipant, onClick?: (name: string) =>
   );
 };
 
-const MultiSearchPanel: React.FC<MultiSearchPanelProps> = ({ participants, progress, onParticipantClick }) => {
+const MultiSearchPanel: React.FC<MultiSearchPanelProps> = ({ participants, progress, onParticipantClick, theme }) => {
   const [copied, setCopied] = useState(false);
+  const isLightTheme = theme === 'Light' || theme === 'Piltover' || theme === 'Winter Wonder';
   
   const blueTeam = participants.filter(p => p.teamId === 100);
   const redTeam = participants.filter(p => p.teamId === 200);
 
-  if (participants.length === 0) return <div className="text-center p-8 text-gray-500">No live game data available.</div>;
+  if (participants.length === 0) return <div className={`text-center p-8 ${isLightTheme ? 'text-gray-400' : 'text-gray-500'}`}>No live game data available.</div>;
 
   const handleCopyOpGg = () => {
       // Create a comma separated list of Riot IDs with format: "Name #Tag,Name #Tag"
@@ -139,11 +145,11 @@ const MultiSearchPanel: React.FC<MultiSearchPanelProps> = ({ participants, progr
       {/* Progress Bar */}
       {progress > 0 && progress < 100 && (
         <div className="mb-4">
-             <div className="flex justify-between text-[10px] text-gray-400 mb-1 uppercase tracking-wide font-bold">
+             <div className={`flex justify-between text-[10px] mb-1 uppercase tracking-wide font-bold ${isLightTheme ? 'text-gray-500' : 'text-gray-400'}`}>
                  <span>Loading Rank & Mastery Data...</span>
                  <span>{progress}%</span>
              </div>
-             <div className="w-full bg-white/10 h-1.5 rounded-full overflow-hidden">
+             <div className={`w-full h-1.5 rounded-full overflow-hidden ${isLightTheme ? 'bg-gray-200' : 'bg-white/10'}`}>
                 <div 
                     className="h-full bg-gradient-to-r from-blue-500 via-purple-500 to-amber-500 transition-all duration-300 ease-out"
                     style={{ width: `${progress}%` }}
@@ -159,7 +165,9 @@ const MultiSearchPanel: React.FC<MultiSearchPanelProps> = ({ participants, progr
             className={`flex-1 py-3 px-2 rounded-lg text-xs font-bold uppercase tracking-wide border transition-all flex items-center justify-center gap-2 ${
                 copied 
                 ? 'bg-green-500/20 border-green-500 text-green-400' 
-                : 'bg-white/5 border-white/10 text-gray-300 hover:bg-white/10 hover:text-white'
+                : isLightTheme 
+                    ? 'bg-gray-100 border-gray-200 text-gray-600 hover:bg-gray-200' 
+                    : 'bg-white/5 border-white/10 text-gray-300 hover:bg-white/10 hover:text-white'
             }`}
         >
             {copied ? (
@@ -190,13 +198,13 @@ const MultiSearchPanel: React.FC<MultiSearchPanelProps> = ({ participants, progr
         {/* Blue Team */}
         <div>
             <h3 className="text-xs font-bold text-blue-400 uppercase tracking-widest mb-3 border-b border-blue-500/20 pb-1">Blue Team</h3>
-            {blueTeam.map(p => <PlayerCard key={p.puuid} p={p} onClick={onParticipantClick} />)}
+            {blueTeam.map(p => <PlayerCard key={p.puuid} p={p} onClick={onParticipantClick} isLightTheme={isLightTheme} />)}
         </div>
 
         {/* Red Team */}
         <div>
             <h3 className="text-xs font-bold text-red-400 uppercase tracking-widest mb-3 border-b border-red-500/20 pb-1">Red Team</h3>
-            {redTeam.map(p => <PlayerCard key={p.puuid} p={p} onClick={onParticipantClick} />)}
+            {redTeam.map(p => <PlayerCard key={p.puuid} p={p} onClick={onParticipantClick} isLightTheme={isLightTheme} />)}
         </div>
       </div>
     </div>

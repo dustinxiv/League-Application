@@ -1,5 +1,5 @@
 
-export type Theme = 'Dark' | 'Light' | 'Piltover' | 'Shadow Isles' | 'Bilgewater' | 'Ionia' | 'Shurima' | 'iOS 18 Glass';
+export type Theme = 'Dark' | 'Light' | 'Piltover' | 'Shadow Isles' | 'Bilgewater' | 'Ionia' | 'Shurima' | 'iOS 18 Glass' | 'Winter Wonder';
 
 export interface ChampionSimple {
   version: string;
