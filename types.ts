@@ -170,3 +170,9 @@ export interface SavedGame {
   date: string;
   pool: ChampionDetail[];
 }
+
+export interface SavedAccount {
+  gameName: string;
+  tagLine: string;
+  region: string;
+}

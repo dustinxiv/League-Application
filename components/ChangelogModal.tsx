@@ -51,6 +51,7 @@ const ChangelogModal: React.FC<ChangelogModalProps> = ({ isOpen, onClose, accent
               <span className="text-purple-400">●</span> Logic & Styling Updates
             </h3>
             <ul className="list-disc pl-5 space-y-1 text-gray-400">
+              <li><strong>Smart Paste:</strong> Pasting "Name#Tag" in the name field automatically fills the tag field.</li>
               <li><strong>CC Detection Fix:</strong> Improved Regex to correctly identify CC abilities.</li>
               <li><strong>New Theme:</strong> Added "iOS 18 Glass" theme.</li>
             </ul>
