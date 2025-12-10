@@ -16,6 +16,7 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ champions, theme }) => {
   const [filterType, setFilterType] = useState<FilterType>('All');
   const [sortType, setSortType] = useState<SortType>('Value');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  const [selectedChampion, setSelectedChampion] = useState<string | null>(null);
 
   const isLightTheme = theme === 'Light' || theme === 'Piltover' || theme === 'Winter Wonder' || theme === 'Ionia';
 
@@ -84,6 +85,10 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ champions, theme }) => {
     setSortDirection('desc');
   }, [activeCategory]);
 
+  const handleChampionClick = (name: string) => {
+      setSelectedChampion(prev => prev === name ? null : name);
+  };
+
   // --- 1. FILTERING LOGIC ---
   const filteredData = rawData.filter(item => {
       if (filterType === 'All') return true;
@@ -113,19 +118,41 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ champions, theme }) => {
       if (!champ) return null;
       
       const imgUrl = `https://ddragon.leagueoflegends.com/cdn/${champ.version || '14.1.1'}/img/champion/${champ.image}`;
+      const isSelected = selectedChampion === payload.value;
+      const isDimmed = selectedChampion !== null && !isSelected;
 
       return (
-        <g transform={`translate(${x},${y})`}>
+        <g 
+            transform={`translate(${x},${y})`} 
+            onClick={() => handleChampionClick(payload.value)} 
+            style={{ cursor: 'pointer', opacity: isDimmed ? 0.3 : 1, transition: 'all 0.3s' }}
+        >
             <foreignObject x={-28} y={-10} width={20} height={20}>
                 <div style={{ width: 20, height: 20 }}>
                     <img 
                         src={imgUrl} 
-                        style={{ width: '100%', height: '100%', borderRadius: '50%', border: '1px solid #9ca3af' }} 
+                        style={{ 
+                            width: '100%', 
+                            height: '100%', 
+                            borderRadius: '50%', 
+                            border: isSelected ? '2px solid #3b82f6' : '1px solid #9ca3af',
+                            transform: isSelected ? 'scale(1.2)' : 'scale(1)',
+                            transition: 'all 0.2s'
+                        }} 
                         alt=""
                     />
                 </div>
             </foreignObject>
-            <text x={-35} y={4} dy={0} textAnchor="end" fill={isLightTheme ? "#374151" : "#9ca3af"} fontSize={10} fontWeight="bold">
+            <text 
+                x={-35} 
+                y={4} 
+                dy={0} 
+                textAnchor="end" 
+                fill={isSelected ? (isLightTheme ? "#1d4ed8" : "#60a5fa") : (isLightTheme ? "#374151" : "#9ca3af")} 
+                fontSize={10} 
+                fontWeight={isSelected ? "900" : "bold"}
+                style={{ textDecoration: isSelected ? 'underline' : 'none' }}
+            >
                 {payload.value}
             </text>
         </g>
@@ -149,6 +176,8 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ champions, theme }) => {
           return sortDirection === 'asc' ? valA - valB : valB - valA;
       });
   };
+
+  const selectedData = selectedChampion ? rawData.find(c => c.name === selectedChampion) : null;
 
   return (
     <div className="w-full pb-24 space-y-4">
@@ -248,6 +277,36 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ champions, theme }) => {
           </div>
       </div>
 
+      {/* Selected Champion Summary Card */}
+      {selectedData && (
+        <div className={`sticky top-0 z-10 p-3 rounded-xl border backdrop-blur-md animate-fade-in shadow-lg ${
+            isLightTheme 
+            ? 'bg-blue-50/95 border-blue-200 text-blue-900 shadow-blue-100' 
+            : 'bg-blue-900/40 border-blue-500/30 text-blue-100 shadow-blue-900/20'
+        }`}>
+            <div className="flex items-center gap-3">
+                <img src={`https://ddragon.leagueoflegends.com/cdn/${selectedData.version}/img/champion/${selectedData.image}`} className="w-12 h-12 rounded-full border-2 border-blue-400 shadow-md" />
+                <div className="flex-1 min-w-0">
+                    <div className="flex justify-between items-center mb-1">
+                        <h3 className="font-bold text-lg leading-none truncate pr-2">{selectedData.name}</h3>
+                        <button onClick={() => setSelectedChampion(null)} className="opacity-60 hover:opacity-100 p-1 hover:bg-black/10 rounded">
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                        </button>
+                    </div>
+                    <div className="grid grid-cols-4 gap-x-2 gap-y-1 text-xs font-mono opacity-90">
+                        <div><span className="block opacity-60 text-[8px] uppercase tracking-wider">HP</span>{selectedData.HP}</div>
+                        <div><span className="block opacity-60 text-[8px] uppercase tracking-wider">AD</span>{selectedData.AD}</div>
+                        <div><span className="block opacity-60 text-[8px] uppercase tracking-wider">Armor</span>{selectedData.Armor}</div>
+                        <div><span className="block opacity-60 text-[8px] uppercase tracking-wider">MR</span>{selectedData.MR}</div>
+                        <div><span className="block opacity-60 text-[8px] uppercase tracking-wider">Range</span>{selectedData.Range}</div>
+                        <div><span className="block opacity-60 text-[8px] uppercase tracking-wider">Move</span>{selectedData.MS}</div>
+                        <div className="col-span-2 truncate"><span className="block opacity-60 text-[8px] uppercase tracking-wider">R CD</span>{selectedData['R CD 1']}/{selectedData['R CD 2']}/{selectedData['R CD 3']}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+      )}
+
       <div className="space-y-8">
         {metrics.map((metric) => {
             // Sort data specifically for THIS graph based on the global sort settings
@@ -268,7 +327,12 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ champions, theme }) => {
                     {sortedData.length > 0 ? (
                         <div style={{ height: dynamicHeight, width: '100%' }}>
                             <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={sortedData} layout="vertical" margin={{ left: 20, right: 45, top: 0, bottom: 0 }} barGap={4}>
+                            <BarChart 
+                                data={sortedData} 
+                                layout="vertical" 
+                                margin={{ left: 20, right: 45, top: 0, bottom: 0 }} 
+                                barGap={4}
+                            >
                                 <CartesianGrid horizontal={false} stroke={isLightTheme ? "#000000" : "#ffffff"} strokeOpacity={0.05} />
                                 <XAxis type="number" hide />
                                 <YAxis 
@@ -291,10 +355,28 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ champions, theme }) => {
                                     itemStyle={{ color: isLightTheme ? '#374151' : '#e5e7eb' }}
                                     cursor={{fill: isLightTheme ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)'}}
                                 />
-                                <Bar dataKey={metric} barSize={20} radius={[0, 4, 4, 0]} animationDuration={500}>
-                                    {sortedData.map((entry, index) => (
-                                        <Cell key={`cell-${index}`} fill={getThemeColor(index)} opacity={sortType === 'Value' ? 1 : 0.8} />
-                                    ))}
+                                <Bar 
+                                    dataKey={metric} 
+                                    barSize={20} 
+                                    radius={[0, 4, 4, 0]} 
+                                    animationDuration={500}
+                                    onClick={(data) => handleChampionClick(data.name)}
+                                    cursor="pointer"
+                                >
+                                    {sortedData.map((entry, index) => {
+                                        const isSelected = selectedChampion === entry.name;
+                                        const isDimmed = selectedChampion !== null && !isSelected;
+                                        
+                                        return (
+                                            <Cell 
+                                                key={`cell-${index}`} 
+                                                fill={getThemeColor(entry.originalIndex)} 
+                                                opacity={isDimmed ? 0.2 : (sortType === 'Value' ? 1 : 0.8)} 
+                                                stroke={isSelected ? (isLightTheme ? '#1d4ed8' : '#fff') : 'none'}
+                                                strokeWidth={2}
+                                            />
+                                        );
+                                    })}
                                     <LabelList dataKey={metric} position="right" fill={isLightTheme ? "#4b5563" : "#9ca3af"} fontSize={11} fontWeight="bold" />
                                 </Bar>
                             </BarChart>

@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import RiotService from './services/riotService';
 import AbilitiesPanel from './components/AbilitiesPanel';
 import ChampionDetailCard from './components/ChampionDetailCard';
@@ -8,7 +8,7 @@ import MultiSearchPanel from './components/MultiSearchPanel';
 import StudioPanel from './components/StudioPanel';
 import ChangelogModal from './components/ChangelogModal';
 import ConfirmationModal from './components/ConfirmationModal';
-import { ChampionDetail, Theme, EnrichedParticipant, SavedGame, SavedAccount } from './types';
+import { ChampionDetail, Theme, EnrichedParticipant, SavedGame, SavedAccount, ChampionListItem, Role, RecentSearch } from './types';
 
 // Icons
 const IconScout = () => <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>;
@@ -32,10 +32,20 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [favorites, setFavorites] = useState<SavedAccount[]>([]);
+  const [recentSearches, setRecentSearches] = useState<RecentSearch[]>([]);
+  
+  // Notes State
+  const [activeSearchTimestamp, setActiveSearchTimestamp] = useState<number | null>(null);
+  const [currentNote, setCurrentNote] = useState('');
   
   // Data State
   const [participants, setParticipants] = useState<EnrichedParticipant[]>([]);
-  const [champions, setChampions] = useState<ChampionDetail[]>([]);
+  
+  // Revised: championList stores enriched data (with role/team), champions prop derived from it for compatibility
+  const [championList, setChampionList] = useState<ChampionListItem[]>([]);
+  
+  const [gameStartTime, setGameStartTime] = useState<number | null>(null);
+  const [elapsedTime, setElapsedTime] = useState('00:00');
   const [progress, setProgress] = useState(0);
 
   // Init
@@ -55,8 +65,48 @@ const App: React.FC = () => {
         try {
             setFavorites(JSON.parse(savedFavs));
         } catch (e) { console.error('Failed to parse favorites'); }
+    } else {
+        // Default presets
+        const presets: SavedAccount[] = [
+            { gameName: 'dustinthewind', tagLine: 'joeyc', region: 'NA' },
+            { gameName: 'dustbyte', tagLine: 'joeyc', region: 'NA' }
+        ];
+        setFavorites(presets);
+        localStorage.setItem('favorites', JSON.stringify(presets));
+    }
+
+    const savedRecents = localStorage.getItem('recentSearches');
+    if (savedRecents) {
+        try {
+            setRecentSearches(JSON.parse(savedRecents));
+        } catch (e) { console.error('Failed to parse recents'); }
     }
   }, []);
+
+  // Timer Logic
+  useEffect(() => {
+    if (!gameStartTime || gameStartTime === 0) {
+        setElapsedTime(gameStartTime === 0 ? 'Loading' : '00:00');
+        return;
+    }
+    
+    const updateTimer = () => {
+        const now = Date.now();
+        const diff = now - gameStartTime;
+        if (diff < 0) {
+             setElapsedTime('00:00');
+             return;
+        }
+        const seconds = Math.floor(diff / 1000);
+        const mm = Math.floor(seconds / 60);
+        const ss = seconds % 60;
+        setElapsedTime(`${mm}:${ss.toString().padStart(2, '0')}`);
+    };
+
+    updateTimer();
+    const interval = setInterval(updateTimer, 1000);
+    return () => clearInterval(interval);
+  }, [gameStartTime]);
 
   // Theme Logic
   const handleSetTheme = (t: Theme) => {
@@ -85,6 +135,96 @@ const App: React.FC = () => {
     document.body.className = getThemeClasses().split(' ')[0]; // Apply bg to body for overscroll
   }, [theme]);
 
+  const addToHistory = (search: RecentSearch) => {
+      setRecentSearches(prev => {
+          // Remove if exists based on exact match deduplication (to move to top)
+          // For matches, we ideally want to keep different games for same player? 
+          // Current logic: One entry per player per region. Updated to:
+          // Keep if gameStartTime is different, allowing "Match History" feel.
+          
+          let filtered = prev;
+          
+          if (search.snapshot) {
+             // If this search has a snapshot (is a live game), deduplicate by Game Start Time
+             filtered = prev.filter(r => {
+                 // Keep if it's a different game time, OR if it's a different player/region
+                 // So we REMOVE if it matches game time AND player (updating the entry essentially)
+                 const sameGame = r.snapshot?.gameStartTime === search.snapshot?.gameStartTime;
+                 const samePlayer = r.gameName.toLowerCase() === search.gameName.toLowerCase() && 
+                                    r.tagLine.toLowerCase() === search.tagLine.toLowerCase();
+                 return !(sameGame && samePlayer);
+             });
+          } else {
+             // Fallback for simple searches without snapshots (legacy behavior)
+             filtered = prev.filter(r => 
+                !(r.gameName.toLowerCase() === search.gameName.toLowerCase() && 
+                  r.tagLine.toLowerCase() === search.tagLine.toLowerCase() && 
+                  r.region === search.region)
+             );
+          }
+          
+          const newRecents = [search, ...filtered].slice(0, 10); // Keep last 10
+          localStorage.setItem('recentSearches', JSON.stringify(newRecents));
+          return newRecents;
+      });
+  };
+
+  const clearHistory = () => {
+      setRecentSearches([]);
+      localStorage.removeItem('recentSearches');
+  };
+
+  const updateActiveNote = (note: string) => {
+      setCurrentNote(note);
+      if (activeSearchTimestamp) {
+          setRecentSearches(prev => {
+              const updated = prev.map(r => {
+                  if (r.timestamp === activeSearchTimestamp) {
+                      return { ...r, notes: note };
+                  }
+                  return r;
+              });
+              localStorage.setItem('recentSearches', JSON.stringify(updated));
+              return updated;
+          });
+      }
+  };
+
+  const formatTimeAgo = (timestamp: number) => {
+      const seconds = Math.floor((Date.now() - timestamp) / 1000);
+      if (seconds < 60) return 'Just now';
+      const minutes = Math.floor(seconds / 60);
+      if (minutes < 60) return `${minutes}m ago`;
+      const hours = Math.floor(minutes / 60);
+      if (hours < 24) return `${hours}h ago`;
+      return `${Math.floor(hours / 24)}d ago`;
+  };
+
+  // Helper to load champions for details tab
+  const loadChampionDetailsForList = async (parts: EnrichedParticipant[]) => {
+      const detailPromises = parts.map(async (p, index) => {
+          const champSimple = RiotService.getChampionByKey(p.championId);
+          if (champSimple) {
+              const detail = await RiotService.getChampionDetail(champSimple.id);
+              if (!detail) return null;
+              
+              const roles: Role[] = ['Top', 'Jungle', 'Mid', 'Bot', 'Support'];
+              const role = roles[index % 5];
+              const team = index < 5 ? 'Blue' : 'Red';
+              
+              return {
+                  detail,
+                  role,
+                  team
+              } as ChampionListItem;
+          }
+          return null;
+      });
+      
+      const detailsResults = await Promise.all(detailPromises);
+      return detailsResults.filter((d): d is ChampionListItem => d !== null);
+  };
+
   // Scouting Logic
   const handleScout = async (nameOverride?: string, tagOverride?: string) => {
       const targetName = nameOverride !== undefined ? nameOverride : gameName;
@@ -98,7 +238,11 @@ const App: React.FC = () => {
       setError('');
       setProgress(10);
       setParticipants([]);
-      setChampions([]);
+      setChampionList([]);
+      setGameStartTime(null);
+      // Reset active session
+      setActiveSearchTimestamp(null);
+      setCurrentNote('');
 
       try {
           const account = await RiotService.getAccount(targetName, targetTag, region, ''); // API Key handled in Service
@@ -108,6 +252,7 @@ const App: React.FC = () => {
           if (!liveGame) {
               throw new Error('Player is not in a live game.');
           }
+          setGameStartTime(liveGame.gameStartTime);
           setProgress(50);
 
           // Enrich Participants
@@ -115,24 +260,16 @@ const App: React.FC = () => {
           setParticipants(enrichedParts);
           setActiveTab('Scout');
 
-          // Fetch Details in Background
-          let loadedCount = 0;
-          const details: ChampionDetail[] = [];
-          
-          // Parallel fetch for champ details
-          const detailPromises = liveGame.participants.map(async (p) => {
-             const champSimple = RiotService.getChampionByKey(p.championId);
-             if (champSimple) {
-                 const detail = await RiotService.getChampionDetail(champSimple.id);
-                 if (detail) details.push(detail);
-             }
-          });
-          
-          await Promise.all(detailPromises);
-          setChampions(details);
+          // Fetch Details & Map Roles
+          const newList = await loadChampionDetailsForList(liveGame.participants);
+          setChampionList(newList);
           setProgress(70);
 
           // Fetch Ranks & Mastery (Slowly update UI)
+          // We need a local copy to accumulate results for the snapshot
+          const finalParts = [...enrichedParts];
+          
+          let loadedCount = 0;
           const rankPromises = enrichedParts.map(async (p, idx) => {
               const [ranks, mastery] = await Promise.all([
                   RiotService.getLeagueEntries(p.summonerId, p.puuid, region, ''),
@@ -141,15 +278,19 @@ const App: React.FC = () => {
               
               const soloRank = ranks.find(r => r.queueType === 'RANKED_SOLO_5x5');
               
+              const updatedPart = {
+                  ...p,
+                  rankSolo: soloRank,
+                  mastery: mastery,
+                  isLoaded: true,
+                  championName: RiotService.getChampionByKey(p.championId)?.name
+              };
+
+              finalParts[idx] = updatedPart;
+
               setParticipants(prev => {
                   const next = [...prev];
-                  next[idx] = {
-                      ...next[idx],
-                      rankSolo: soloRank,
-                      mastery: mastery,
-                      isLoaded: true,
-                      championName: RiotService.getChampionByKey(p.championId)?.name
-                  };
+                  next[idx] = updatedPart;
                   return next;
               });
               loadedCount++;
@@ -159,9 +300,52 @@ const App: React.FC = () => {
           await Promise.all(rankPromises);
           setProgress(100);
 
+          // Add to History with Snapshot
+          const selfP = finalParts.find(p => p.riotId?.toLowerCase().includes(targetName.toLowerCase()));
+          const timestamp = Date.now();
+          
+          addToHistory({
+              gameName: targetName,
+              tagLine: targetTag,
+              region,
+              championId: selfP ? selfP.championId : 0,
+              timestamp: timestamp,
+              notes: '',
+              snapshot: {
+                  participants: finalParts,
+                  gameStartTime: liveGame.gameStartTime
+              }
+          });
+          
+          // Set this as the active session for notes
+          setActiveSearchTimestamp(timestamp);
+
       } catch (e: any) {
           setError(e.message || 'Scouting Failed');
           setProgress(0);
+      } finally {
+          setIsLoading(false);
+      }
+  };
+
+  // Add Manual Champion Handler
+  const handleAddChampion = async (championId: string) => {
+      // Check if already exists
+      if (championList.some(c => c.detail.id === championId)) return;
+
+      setIsLoading(true);
+      try {
+          const detail = await RiotService.getChampionDetail(championId);
+          if (detail) {
+              setChampionList(prev => [...prev, {
+                  detail,
+                  role: 'Manual',
+                  // No team for manual
+              }]);
+              setActiveTab('Details');
+          }
+      } catch (e) {
+          console.error(e);
       } finally {
           setIsLoading(false);
       }
@@ -233,16 +417,51 @@ const App: React.FC = () => {
 
   const handleParticipantClick = (champName: string) => {
       // Find champ
-      const exists = champions.find(c => c.name === champName);
+      const exists = championList.find(c => c.detail.name === champName);
       if (exists) {
           setActiveTab('Details');
           // Scroll to element after render
           setTimeout(() => {
-              const el = document.getElementById(`champ-${exists.id}`);
+              const el = document.getElementById(`champ-${exists.detail.id}`);
               if (el) el.scrollIntoView({ behavior: 'smooth' });
           }, 100);
       }
   };
+
+  const handleRecentClick = async (r: RecentSearch) => {
+      setGameName(r.gameName);
+      setTagLine(r.tagLine);
+      setRegion(r.region);
+
+      // Check if we have a snapshot to revisit past data
+      if (r.snapshot) {
+          setGameStartTime(r.snapshot.gameStartTime);
+          setParticipants(r.snapshot.participants);
+          setActiveTab('Scout');
+          setProgress(100); // Visual indicator that data is ready
+          
+          // Set Active Session for Notes
+          setActiveSearchTimestamp(r.timestamp);
+          setCurrentNote(r.notes || '');
+
+          setIsLoading(true);
+          try {
+              // Reconstruct Details Tab data
+              const newList = await loadChampionDetailsForList(r.snapshot.participants);
+              setChampionList(newList);
+          } catch(e) {
+              console.error("Failed to load details from snapshot", e);
+          } finally {
+              setIsLoading(false);
+          }
+      } else {
+          // Legacy behavior: fresh scout
+          handleScout(r.gameName, r.tagLine);
+      }
+  };
+
+  // Derive simple array for components that don't need roles
+  const simpleChampions = championList.map(c => c.detail);
 
   return (
     <div className={`min-h-screen transition-colors duration-500 ${getThemeClasses()} pb-10`}>
@@ -255,9 +474,20 @@ const App: React.FC = () => {
                         <h1 className="text-xl font-black tracking-tighter uppercase italic bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-500 drop-shadow-sm">
                             LoL Gameboard
                         </h1>
-                        <button onClick={() => setShowChangelog(true)} className="text-xs font-bold opacity-60 hover:opacity-100">
-                            v{APP_VERSION}
-                        </button>
+                        
+                        <div className="flex items-center gap-3">
+                             {gameStartTime !== null && (
+                                 <div className={`flex items-center gap-2 px-2 py-1 rounded-md border shadow-sm ${
+                                     isLightTheme ? 'bg-white/80 border-red-100 text-red-600' : 'bg-black/40 border-red-500/20 text-red-400'
+                                 }`}>
+                                     <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.6)]" />
+                                     <span className="font-mono font-bold text-sm tracking-wider">{elapsedTime}</span>
+                                 </div>
+                             )}
+                            <button onClick={() => setShowChangelog(true)} className="text-xs font-bold opacity-60 hover:opacity-100">
+                                v{APP_VERSION}
+                            </button>
+                        </div>
                     </div>
 
                     {/* Search Bar */}
@@ -393,6 +623,92 @@ const App: React.FC = () => {
         <main className="max-w-4xl mx-auto p-4 min-h-[50vh]">
             {activeTab === 'Scout' && (
                 <div className="space-y-6">
+                    {/* Recent History Panel */}
+                    {recentSearches.length > 0 && (
+                         <div className={`rounded-xl border p-3 ${
+                             isLightTheme ? 'bg-white/60 border-gray-200' : 'bg-white/5 border-white/5'
+                         }`}>
+                             <div className="flex justify-between items-center mb-2 px-1">
+                                 <h3 className={`text-xs font-bold uppercase tracking-widest ${isLightTheme ? 'text-gray-500' : 'text-gray-400'}`}>
+                                     Recent History
+                                 </h3>
+                                 <button onClick={clearHistory} className="text-[10px] opacity-50 hover:opacity-100 hover:text-red-400 transition-colors">
+                                     Clear
+                                 </button>
+                             </div>
+                             <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">
+                                 {recentSearches.map((r, i) => {
+                                     const champ = RiotService.getChampionByKey(r.championId);
+                                     const img = champ 
+                                         ? `https://ddragon.leagueoflegends.com/cdn/${RiotService.getVersion()}/img/champion/${champ.image.full}`
+                                         : null;
+                                     
+                                     // Highlight active search
+                                     const isActive = r.timestamp === activeSearchTimestamp;
+
+                                     return (
+                                        <button 
+                                            key={i}
+                                            onClick={() => handleRecentClick(r)}
+                                            className={`shrink-0 flex items-center gap-3 p-2 pr-4 rounded-lg border transition-all text-left min-w-[140px] relative overflow-hidden ${
+                                                isActive
+                                                ? (isLightTheme ? 'bg-blue-50 border-blue-400 ring-1 ring-blue-400' : 'bg-blue-900/20 border-blue-500 ring-1 ring-blue-500')
+                                                : (isLightTheme ? 'bg-white hover:bg-gray-50 border-gray-200' : 'bg-black/20 hover:bg-white/10 border-white/10')
+                                            }`}
+                                        >
+                                            {r.notes && (
+                                                <div className="absolute top-0 right-0 w-3 h-3">
+                                                    <div className="absolute top-0 right-0 border-t-[12px] border-r-[12px] border-t-transparent border-r-yellow-500"></div>
+                                                </div>
+                                            )}
+
+                                            {img ? (
+                                                <img src={img} className="w-8 h-8 rounded-full border border-gray-500/30" alt="" />
+                                            ) : (
+                                                <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs ${isLightTheme ? 'bg-gray-200 text-gray-500' : 'bg-white/10 text-gray-400'}`}>
+                                                    {r.gameName[0]}
+                                                </div>
+                                            )}
+                                            <div className="flex flex-col min-w-0">
+                                                <span className={`text-xs font-bold truncate w-20 ${isLightTheme ? 'text-gray-800' : 'text-gray-200'}`}>
+                                                    {r.gameName}
+                                                </span>
+                                                <span className={`text-[9px] ${isLightTheme ? 'text-gray-400' : 'text-gray-500'}`}>
+                                                    {formatTimeAgo(r.timestamp)}
+                                                </span>
+                                            </div>
+                                        </button>
+                                     );
+                                 })}
+                             </div>
+                         </div>
+                    )}
+                    
+                    {/* Game Notes - Visible if active session exists */}
+                    {activeSearchTimestamp && (
+                        <div className={`rounded-xl border p-3 transition-colors ${
+                            isLightTheme ? 'bg-yellow-50/50 border-yellow-200' : 'bg-yellow-900/10 border-yellow-500/20'
+                        }`}>
+                            <div className="flex justify-between items-center mb-2">
+                                <h3 className={`text-xs font-bold uppercase tracking-widest flex items-center gap-2 ${isLightTheme ? 'text-yellow-700' : 'text-yellow-500'}`}>
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                                    Match Notes
+                                </h3>
+                                <span className={`text-[9px] uppercase ${isLightTheme ? 'text-yellow-600/60' : 'text-yellow-500/60'}`}>Auto-saves to History</span>
+                            </div>
+                            <textarea
+                                value={currentNote}
+                                onChange={(e) => updateActiveNote(e.target.value)}
+                                placeholder="Add scouting notes, strategy reminders, or cooldown tracking..."
+                                className={`w-full text-xs min-h-[60px] p-3 rounded-lg outline-none resize-y ${
+                                    isLightTheme 
+                                    ? 'bg-white text-gray-800 placeholder-gray-400 border border-yellow-200 focus:border-yellow-400' 
+                                    : 'bg-black/30 text-gray-200 placeholder-white/20 border border-yellow-500/20 focus:border-yellow-500/50'
+                                }`}
+                            />
+                        </div>
+                    )}
+
                     {/* Live Game Players */}
                     <MultiSearchPanel 
                         participants={participants} 
@@ -403,50 +719,30 @@ const App: React.FC = () => {
                     />
                     
                     {/* High Priority Abilities */}
-                    {champions.length > 0 && (
+                    {simpleChampions.length > 0 && (
                         <div>
                             <h2 className={`text-sm font-bold uppercase mb-3 px-1 ${isLightTheme ? 'text-gray-600' : 'text-gray-400'}`}>High Priority Spells</h2>
-                            <AbilitiesPanel champions={champions} globalHaste={0} theme={theme} />
+                            <AbilitiesPanel champions={simpleChampions} globalHaste={0} theme={theme} />
                         </div>
                     )}
                 </div>
             )}
 
             {activeTab === 'Details' && (
-                <div>
-                     {/* Quick Nav */}
-                     {champions.length > 0 && (
-                        <div className="flex gap-2 overflow-x-auto pb-4 mb-2 no-scrollbar">
-                            {champions.map(c => (
-                                <button 
-                                    key={c.id} 
-                                    onClick={() => {
-                                        const el = document.getElementById(`champ-${c.id}`);
-                                        if(el) el.scrollIntoView({behavior: 'smooth'});
-                                    }}
-                                    className="shrink-0 relative group"
-                                >
-                                    <div className="absolute inset-0 rounded-full border-2 border-transparent group-hover:border-blue-500 transition-colors z-10"></div>
-                                    <img src={`https://ddragon.leagueoflegends.com/cdn/${c.version}/img/champion/${c.image.full}`} className="w-10 h-10 rounded-full shadow-lg" />
-                                </button>
-                            ))}
-                        </div>
-                     )}
-
-                     {champions.length > 0 ? champions.map(c => (
-                        <ChampionDetailCard key={c.id} champion={c} globalHaste={0} id={`champ-${c.id}`} theme={theme} />
-                     )) : (
-                        <div className={`text-center py-20 ${isLightTheme ? 'text-gray-400' : 'text-gray-600'}`}>No champions loaded</div>
-                     )}
-                </div>
+                <ChampionDetailCard 
+                    items={championList} 
+                    globalHaste={0} 
+                    theme={theme} 
+                    onAddChampion={handleAddChampion}
+                />
             )}
 
             {activeTab === 'Stats' && (
-                <StatsPanel champions={champions} theme={theme} />
+                <StatsPanel champions={simpleChampions} theme={theme} />
             )}
 
             {activeTab === 'Studio' && (
-                <StudioPanel champions={champions} participants={participants} theme={theme} />
+                <StudioPanel champions={simpleChampions} participants={participants} theme={theme} />
             )}
         </main>
 

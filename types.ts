@@ -1,4 +1,5 @@
 
+
 export type Theme = 'Dark' | 'Light' | 'Piltover' | 'Shadow Isles' | 'Bilgewater' | 'Ionia' | 'Shurima' | 'iOS 18 Glass' | 'Winter Wonder';
 
 export interface ChampionSimple {
@@ -126,6 +127,7 @@ export interface LiveGameInfo {
   mapId: number;
   gameMode: string;
   gameType: string;
+  gameStartTime: number;
   participants: LiveGameParticipant[];
 }
 
@@ -175,4 +177,26 @@ export interface SavedAccount {
   gameName: string;
   tagLine: string;
   region: string;
+}
+
+export interface RecentSearch {
+  gameName: string;
+  tagLine: string;
+  region: string;
+  championId: number;
+  timestamp: number;
+  notes?: string;
+  snapshot?: {
+      participants: EnrichedParticipant[];
+      gameStartTime: number;
+  };
+}
+
+// --- NEW TYPES FOR LIST & FILTERING ---
+export type Role = 'Top' | 'Jungle' | 'Mid' | 'Bot' | 'Support' | 'Manual';
+
+export interface ChampionListItem {
+    detail: ChampionDetail;
+    role: Role;
+    team?: 'Blue' | 'Red';
 }

@@ -1,3 +1,4 @@
+
 import { ChampionSimple, ChampionDetail, RiotAccount, LiveGameInfo, RegionConfig, LeagueEntry, ChampionMastery } from '../types';
 
 const DEFAULT_API_KEY = 'RGAPI-0339b92e-ce0f-48b0-948c-af1b6b6c5224';
@@ -6,7 +7,7 @@ const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 class RiotService {
   private static instance: RiotService;
-  private version: string = '14.1.1';
+  private version: string = '15.1.1'; // Updated default version
   private championsCache: Record<string, ChampionSimple> | null = null;
   private championDetailsCache: Record<string, ChampionDetail> = {};
   private championKeyMap: Record<string, ChampionSimple> = {};
@@ -31,6 +32,8 @@ class RiotService {
       await this.getAllChampions();
     } catch (e) {
       console.warn('Failed to fetch DDragon version, using fallback:', this.version);
+      // Even if version fetch fails, try to load champs with fallback version
+      await this.getAllChampions();
     }
   }
 
@@ -58,6 +61,16 @@ class RiotService {
     } catch (e) {
       return {};
     }
+  }
+
+  // Returns a simple list for Autocomplete UI
+  public getChampionSummaryList(): {name: string, id: string, image: string}[] {
+    if (!this.championsCache) return [];
+    return Object.values(this.championsCache).map(c => ({
+        name: c.name,
+        id: c.id,
+        image: c.image.full
+    })).sort((a,b) => a.name.localeCompare(b.name));
   }
 
   public getChampionByKey(key: number | string): ChampionSimple | undefined {
@@ -95,14 +108,14 @@ class RiotService {
     const targetUrl = `${url}${separator}api_key=${key}`;
     const encodedTarget = encodeURIComponent(targetUrl);
     
-    // Updated Proxy Order for better stability with Names/Spaces
+    // Updated Proxy Order for better stability
     const proxies = [
-        // AllOrigins - Raw mode is currently most reliable for Riot IDs with spaces
+        // CorsProxy.io - Often most reliable and fast
+        (target: string) => `https://corsproxy.io/?${target}`,
+        // AllOrigins - Raw mode
         (target: string) => `https://api.allorigins.win/raw?url=${target}&timestamp=${Date.now()}`,
         // CodeTabs - Good backup, handles headers well
-        (target: string) => `https://api.codetabs.com/v1/proxy?quest=${target}`,
-        // ThingProxy - Last resort
-        (target: string) => `https://thingproxy.freeboard.io/fetch/${targetUrl}`
+        (target: string) => `https://api.codetabs.com/v1/proxy?quest=${target}`
     ];
 
     let lastError: any;
@@ -112,8 +125,8 @@ class RiotService {
             const proxyUrl = createProxyUrl(encodedTarget);
             
             const controller = new AbortController();
-            // Increased timeout to 10s for complex requests
-            const id = setTimeout(() => controller.abort(), 10000); 
+            // Increased timeout to 15s for stability
+            const id = setTimeout(() => controller.abort(), 15000); 
 
             const res = await fetch(proxyUrl, { signal: controller.signal });
             clearTimeout(id);
@@ -122,7 +135,7 @@ class RiotService {
             if (res.status === 429) {
                 if (retries > 0) {
                     // console.warn(`Rate Limit hit. Retrying in 2s... (${retries} left)`);
-                    await wait(2000);
+                    await wait(2500); // Increased wait time slightly
                     return this.request(url, apiKey, retries - 1);
                 } else {
                     throw new Error('429 Rate Limit Exceeded');
@@ -140,6 +153,7 @@ class RiotService {
                 data = JSON.parse(text);
             } catch (jsonError) {
                 // If proxy returns HTML error page (502/504), treat as failure and rotate
+                // console.warn('Proxy returned non-JSON', proxyUrl);
                 throw new Error('Proxy returned non-JSON response');
             }
             
@@ -148,7 +162,7 @@ class RiotService {
                  if (data.status.status_code === 404) return null;
                  if (data.status.status_code === 429) {
                      if (retries > 0) {
-                        await wait(2000);
+                        await wait(2500);
                         return this.request(url, apiKey, retries - 1);
                      }
                      throw new Error('Riot API Rate Limit');
@@ -168,8 +182,8 @@ class RiotService {
         }
     }
 
-    // console.error('All proxies failed.', lastError);
-    throw lastError;
+    console.error('All proxies failed.', lastError);
+    throw new Error('Network Error: Failed to connect to Riot API via proxies. Please try again.');
   }
 
   public async getAccount(gameName: string, tagLine: string, region: string, apiKey: string): Promise<RiotAccount> {
@@ -239,7 +253,7 @@ class RiotService {
   public async imageUrlToBase64(url: string): Promise<string | null> {
     try {
         // Try proxy first since direct fetch fails CORS on web
-        const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+        const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(url)}`;
         const response = await fetch(proxyUrl);
         if (!response.ok) throw new Error('Failed to fetch image via proxy');
         const blob = await response.blob();
