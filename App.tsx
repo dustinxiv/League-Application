@@ -85,61 +85,12 @@ const App: React.FC = () => {
     document.body.className = getThemeClasses().split(' ')[0]; // Apply bg to body for overscroll
   }, [theme]);
 
-  // Favorites Logic
-  const toggleFavorite = () => {
-      if (!gameName || !tagLine) return;
-      
-      const exists = favorites.find(f => 
-          f.gameName.toLowerCase() === gameName.toLowerCase() && 
-          f.tagLine.toLowerCase() === tagLine.toLowerCase() &&
-          f.region === region
-      );
-
-      let newFavs;
-      if (exists) {
-          newFavs = favorites.filter(f => f !== exists);
-      } else {
-          newFavs = [...favorites, { gameName, tagLine, region }];
-      }
-      
-      setFavorites(newFavs);
-      localStorage.setItem('favorites', JSON.stringify(newFavs));
-  };
-
-  const loadFavorite = (fav: SavedAccount) => {
-      setGameName(fav.gameName);
-      setTagLine(fav.tagLine);
-      setRegion(fav.region);
-  };
-
-  const removeFavorite = (e: React.MouseEvent, fav: SavedAccount) => {
-      e.stopPropagation(); // Prevent clicking the chip from loading it
-      const newFavs = favorites.filter(f => f !== fav);
-      setFavorites(newFavs);
-      localStorage.setItem('favorites', JSON.stringify(newFavs));
-  };
-
-  const isCurrentFavorite = favorites.some(f => 
-      f.gameName.toLowerCase() === gameName.toLowerCase() && 
-      f.tagLine.toLowerCase() === tagLine.toLowerCase() &&
-      f.region === region
-  );
-
-  // Smart Paste Handler
-  const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
-    const text = e.clipboardData.getData('text');
-    if (text && text.includes('#')) {
-      e.preventDefault();
-      const [name, ...rest] = text.split('#');
-      const tag = rest.join('').trim(); // Handles cases where tag might have accidentally included extra characters, though rare.
-      setGameName(name.trim());
-      setTagLine(tag);
-    }
-  };
-
   // Scouting Logic
-  const handleScout = async () => {
-      if (!gameName || !tagLine) {
+  const handleScout = async (nameOverride?: string, tagOverride?: string) => {
+      const targetName = nameOverride !== undefined ? nameOverride : gameName;
+      const targetTag = tagOverride !== undefined ? tagOverride : tagLine;
+
+      if (!targetName || !targetTag) {
           setError('Please enter Name and Tag');
           return;
       }
@@ -150,7 +101,7 @@ const App: React.FC = () => {
       setChampions([]);
 
       try {
-          const account = await RiotService.getAccount(gameName, tagLine, region, ''); // API Key handled in Service
+          const account = await RiotService.getAccount(targetName, targetTag, region, ''); // API Key handled in Service
           setProgress(30);
           
           const liveGame = await RiotService.getLiveGame(account.puuid, region, '');
@@ -216,6 +167,70 @@ const App: React.FC = () => {
       }
   };
 
+  // Favorites Logic
+  const toggleFavorite = () => {
+      if (!gameName || !tagLine) return;
+      
+      const exists = favorites.find(f => 
+          f.gameName.toLowerCase() === gameName.toLowerCase() && 
+          f.tagLine.toLowerCase() === tagLine.toLowerCase() &&
+          f.region === region
+      );
+
+      let newFavs;
+      if (exists) {
+          newFavs = favorites.filter(f => f !== exists);
+      } else {
+          newFavs = [...favorites, { gameName, tagLine, region }];
+      }
+      
+      setFavorites(newFavs);
+      localStorage.setItem('favorites', JSON.stringify(newFavs));
+  };
+
+  const loadFavorite = (fav: SavedAccount) => {
+      setGameName(fav.gameName);
+      setTagLine(fav.tagLine);
+      setRegion(fav.region);
+      handleScout(fav.gameName, fav.tagLine);
+  };
+
+  const removeFavorite = (e: React.MouseEvent, fav: SavedAccount) => {
+      e.stopPropagation(); // Prevent clicking the chip from loading it
+      const newFavs = favorites.filter(f => f !== fav);
+      setFavorites(newFavs);
+      localStorage.setItem('favorites', JSON.stringify(newFavs));
+  };
+
+  const isCurrentFavorite = favorites.some(f => 
+      f.gameName.toLowerCase() === gameName.toLowerCase() && 
+      f.tagLine.toLowerCase() === tagLine.toLowerCase() &&
+      f.region === region
+  );
+
+  // Smart Paste Handler
+  const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    const text = e.clipboardData.getData('text');
+    if (text && text.includes('#')) {
+      e.preventDefault();
+      const [name, ...rest] = text.split('#');
+      const tag = rest.join('').trim(); // Handles cases where tag might have accidentally included extra characters, though rare.
+      const nameTrimmed = name.trim();
+      
+      setGameName(nameTrimmed);
+      setTagLine(tag);
+      
+      // Auto-fetch on paste
+      handleScout(nameTrimmed, tag);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === 'Enter') {
+          handleScout();
+      }
+  };
+
   const handleParticipantClick = (champName: string) => {
       // Find champ
       const exists = champions.find(c => c.name === champName);
@@ -262,6 +277,7 @@ const App: React.FC = () => {
                         <input 
                             type="text" placeholder="Name" value={gameName} onChange={e => setGameName(e.target.value)}
                             onPaste={handlePaste}
+                            onKeyDown={handleKeyDown}
                             className={`flex-1 min-w-0 text-xs font-bold rounded-lg px-3 py-2 outline-none border transition-colors ${
                                 isLightTheme 
                                 ? 'bg-white/80 border-gray-300 text-gray-800 placeholder-gray-400' 
@@ -270,6 +286,7 @@ const App: React.FC = () => {
                         />
                         <input 
                             type="text" placeholder="#Tag" value={tagLine} onChange={e => setTagLine(e.target.value)}
+                            onKeyDown={handleKeyDown}
                             className={`w-16 text-xs font-bold rounded-lg px-2 py-2 outline-none border transition-colors ${
                                 isLightTheme 
                                 ? 'bg-white/80 border-gray-300 text-gray-800 placeholder-gray-400' 
@@ -291,7 +308,7 @@ const App: React.FC = () => {
                         </button>
 
                         <button 
-                            onClick={handleScout} 
+                            onClick={() => handleScout()} 
                             disabled={isLoading}
                             className="bg-blue-600 hover:bg-blue-500 text-white rounded-lg px-4 py-2 font-bold shadow-lg disabled:opacity-50 transition-transform active:scale-95"
                         >
@@ -382,6 +399,7 @@ const App: React.FC = () => {
                         progress={progress} 
                         onParticipantClick={handleParticipantClick}
                         theme={theme}
+                        region={region}
                     />
                     
                     {/* High Priority Abilities */}

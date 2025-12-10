@@ -8,6 +8,7 @@ interface MultiSearchPanelProps {
   progress: number;
   onParticipantClick?: (championName: string) => void;
   theme: Theme;
+  region: string;
 }
 
 const RankBadge: React.FC<{ tier: string; rank: string; lp: number }> = ({ tier, rank, lp }) => {
@@ -36,7 +37,7 @@ const RankBadge: React.FC<{ tier: string; rank: string; lp: number }> = ({ tier,
   );
 };
 
-const PlayerCard: React.FC<{ p: EnrichedParticipant, onClick?: (name: string) => void, isLightTheme: boolean }> = ({ p, onClick, isLightTheme }) => {
+const PlayerCard: React.FC<{ p: EnrichedParticipant, onClick?: (name: string) => void, isLightTheme: boolean, region: string }> = ({ p, onClick, isLightTheme, region }) => {
   const version = RiotService.getVersion();
   // Get Champion Image from ID
   const champData = RiotService.getChampionByKey(p.championId);
@@ -45,6 +46,24 @@ const PlayerCard: React.FC<{ p: EnrichedParticipant, onClick?: (name: string) =>
   const rank = p.rankSolo;
   const winRate = rank ? Math.round((rank.wins / (rank.wins + rank.losses)) * 100) : 0;
   const totalGames = rank ? rank.wins + rank.losses : 0;
+
+  const handleOpGgClick = (e: React.MouseEvent, riotId: string) => {
+      e.stopPropagation();
+      if (!riotId || !riotId.includes('#')) return;
+
+      const [gameName, ...rest] = riotId.split('#');
+      const tagLine = rest.join('');
+      
+      // Handle URL Encoding (spaces become %20, chinese chars, etc)
+      const encodedName = encodeURIComponent(gameName);
+      
+      // op.gg uses 'na', 'euw', 'kr' etc. (lowercase)
+      const regionPath = region.toLowerCase();
+
+      // Format: https://op.gg/lol/summoners/na/Name-Tag
+      const url = `https://op.gg/lol/summoners/${regionPath}/${encodedName}-${tagLine}`;
+      window.open(url, '_blank');
+  };
 
   return (
     <div 
@@ -66,7 +85,12 @@ const PlayerCard: React.FC<{ p: EnrichedParticipant, onClick?: (name: string) =>
       {/* Info */}
       <div className="flex-1 min-w-0">
         <div className="flex justify-between items-center mb-1">
-          <div className={`truncate text-xs font-bold ${isLightTheme ? 'text-gray-900' : 'text-gray-200'}`}>
+          {/* Summoner Name - Interactive for OP.GG */}
+          <div 
+            onClick={(e) => handleOpGgClick(e, p.riotId)}
+            className={`truncate text-xs font-bold hover:underline decoration-blue-500 cursor-pointer ${isLightTheme ? 'text-gray-900 hover:text-blue-600' : 'text-gray-200 hover:text-blue-400'}`}
+            title="Open OP.GG"
+          >
             {p.riotId}
           </div>
           {p.isLoaded ? (
@@ -112,7 +136,7 @@ const PlayerCard: React.FC<{ p: EnrichedParticipant, onClick?: (name: string) =>
   );
 };
 
-const MultiSearchPanel: React.FC<MultiSearchPanelProps> = ({ participants, progress, onParticipantClick, theme }) => {
+const MultiSearchPanel: React.FC<MultiSearchPanelProps> = ({ participants, progress, onParticipantClick, theme, region }) => {
   const [copied, setCopied] = useState(false);
   const isLightTheme = theme === 'Light' || theme === 'Piltover' || theme === 'Winter Wonder' || theme === 'Ionia';
   
@@ -198,13 +222,13 @@ const MultiSearchPanel: React.FC<MultiSearchPanelProps> = ({ participants, progr
         {/* Blue Team */}
         <div>
             <h3 className="text-xs font-bold text-blue-400 uppercase tracking-widest mb-3 border-b border-blue-500/20 pb-1">Blue Team</h3>
-            {blueTeam.map(p => <PlayerCard key={p.puuid} p={p} onClick={onParticipantClick} isLightTheme={isLightTheme} />)}
+            {blueTeam.map(p => <PlayerCard key={p.puuid} p={p} onClick={onParticipantClick} isLightTheme={isLightTheme} region={region} />)}
         </div>
 
         {/* Red Team */}
         <div>
             <h3 className="text-xs font-bold text-red-400 uppercase tracking-widest mb-3 border-b border-red-500/20 pb-1">Red Team</h3>
-            {redTeam.map(p => <PlayerCard key={p.puuid} p={p} onClick={onParticipantClick} isLightTheme={isLightTheme} />)}
+            {redTeam.map(p => <PlayerCard key={p.puuid} p={p} onClick={onParticipantClick} isLightTheme={isLightTheme} region={region} />)}
         </div>
       </div>
     </div>
