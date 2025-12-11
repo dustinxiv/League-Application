@@ -15,6 +15,7 @@ const IconScout = () => <svg className="w-6 h-6" fill="none" stroke="currentColo
 const IconDetails = () => <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5zM10 5a2 2 0 110-4 2 2 0 010 4z" /></svg>;
 const IconStats = () => <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>;
 const IconStudio = () => <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>;
+const IconSettings = () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>;
 
 type Tab = 'Scout' | 'Details' | 'Stats' | 'Studio';
 
@@ -24,6 +25,7 @@ const App: React.FC = () => {
   const [theme, setTheme] = useState<Theme>('Dark');
   const [activeTab, setActiveTab] = useState<Tab>('Scout');
   const [showChangelog, setShowChangelog] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   
   // Search State
   const [gameName, setGameName] = useState('');
@@ -34,6 +36,9 @@ const App: React.FC = () => {
   const [favorites, setFavorites] = useState<SavedAccount[]>([]);
   const [recentSearches, setRecentSearches] = useState<RecentSearch[]>([]);
   
+  // Settings State
+  const [globalHaste, setGlobalHaste] = useState(0);
+
   // Notes State
   const [activeSearchTimestamp, setActiveSearchTimestamp] = useState<number | null>(null);
   const [currentNote, setCurrentNote] = useState('');
@@ -53,6 +58,9 @@ const App: React.FC = () => {
     RiotService.init();
     const savedTheme = localStorage.getItem('theme') as Theme;
     if (savedTheme) setTheme(savedTheme);
+
+    const savedHaste = localStorage.getItem('globalHaste');
+    if (savedHaste) setGlobalHaste(parseInt(savedHaste));
 
     const lastVersion = localStorage.getItem('app_version');
     if (lastVersion !== APP_VERSION) {
@@ -114,6 +122,11 @@ const App: React.FC = () => {
       localStorage.setItem('theme', t);
   };
 
+  const handleSetHaste = (val: number) => {
+      setGlobalHaste(val);
+      localStorage.setItem('globalHaste', val.toString());
+  };
+
   const getThemeClasses = () => {
       switch (theme) {
           case 'Light': return 'bg-gray-100 text-gray-900';
@@ -137,25 +150,15 @@ const App: React.FC = () => {
 
   const addToHistory = (search: RecentSearch) => {
       setRecentSearches(prev => {
-          // Remove if exists based on exact match deduplication (to move to top)
-          // For matches, we ideally want to keep different games for same player? 
-          // Current logic: One entry per player per region. Updated to:
-          // Keep if gameStartTime is different, allowing "Match History" feel.
-          
           let filtered = prev;
-          
           if (search.snapshot) {
-             // If this search has a snapshot (is a live game), deduplicate by Game Start Time
              filtered = prev.filter(r => {
-                 // Keep if it's a different game time, OR if it's a different player/region
-                 // So we REMOVE if it matches game time AND player (updating the entry essentially)
                  const sameGame = r.snapshot?.gameStartTime === search.snapshot?.gameStartTime;
                  const samePlayer = r.gameName.toLowerCase() === search.gameName.toLowerCase() && 
                                     r.tagLine.toLowerCase() === search.tagLine.toLowerCase();
                  return !(sameGame && samePlayer);
              });
           } else {
-             // Fallback for simple searches without snapshots (legacy behavior)
              filtered = prev.filter(r => 
                 !(r.gameName.toLowerCase() === search.gameName.toLowerCase() && 
                   r.tagLine.toLowerCase() === search.tagLine.toLowerCase() && 
@@ -163,7 +166,7 @@ const App: React.FC = () => {
              );
           }
           
-          const newRecents = [search, ...filtered].slice(0, 10); // Keep last 10
+          const newRecents = [search, ...filtered].slice(0, 10);
           localStorage.setItem('recentSearches', JSON.stringify(newRecents));
           return newRecents;
       });
@@ -200,7 +203,6 @@ const App: React.FC = () => {
       return `${Math.floor(hours / 24)}d ago`;
   };
 
-  // Helper to load champions for details tab
   const loadChampionDetailsForList = async (parts: EnrichedParticipant[]) => {
       const detailPromises = parts.map(async (p, index) => {
           const champSimple = RiotService.getChampionByKey(p.championId);
@@ -225,7 +227,6 @@ const App: React.FC = () => {
       return detailsResults.filter((d): d is ChampionListItem => d !== null);
   };
 
-  // Scouting Logic
   const handleScout = async (nameOverride?: string, tagOverride?: string) => {
       const targetName = nameOverride !== undefined ? nameOverride : gameName;
       const targetTag = tagOverride !== undefined ? tagOverride : tagLine;
@@ -240,12 +241,11 @@ const App: React.FC = () => {
       setParticipants([]);
       setChampionList([]);
       setGameStartTime(null);
-      // Reset active session
       setActiveSearchTimestamp(null);
       setCurrentNote('');
 
       try {
-          const account = await RiotService.getAccount(targetName, targetTag, region, ''); // API Key handled in Service
+          const account = await RiotService.getAccount(targetName, targetTag, region, '');
           setProgress(30);
           
           const liveGame = await RiotService.getLiveGame(account.puuid, region, '');
@@ -255,20 +255,15 @@ const App: React.FC = () => {
           setGameStartTime(liveGame.gameStartTime);
           setProgress(50);
 
-          // Enrich Participants
           const enrichedParts: EnrichedParticipant[] = liveGame.participants.map(p => ({...p, isLoaded: false}));
           setParticipants(enrichedParts);
           setActiveTab('Scout');
 
-          // Fetch Details & Map Roles
           const newList = await loadChampionDetailsForList(liveGame.participants);
           setChampionList(newList);
           setProgress(70);
 
-          // Fetch Ranks & Mastery (Slowly update UI)
-          // We need a local copy to accumulate results for the snapshot
           const finalParts = [...enrichedParts];
-          
           let loadedCount = 0;
           const rankPromises = enrichedParts.map(async (p, idx) => {
               const [ranks, mastery] = await Promise.all([
@@ -300,7 +295,6 @@ const App: React.FC = () => {
           await Promise.all(rankPromises);
           setProgress(100);
 
-          // Add to History with Snapshot
           const selfP = finalParts.find(p => p.riotId?.toLowerCase().includes(targetName.toLowerCase()));
           const timestamp = Date.now();
           
@@ -317,7 +311,6 @@ const App: React.FC = () => {
               }
           });
           
-          // Set this as the active session for notes
           setActiveSearchTimestamp(timestamp);
 
       } catch (e: any) {
@@ -328,11 +321,8 @@ const App: React.FC = () => {
       }
   };
 
-  // Add Manual Champion Handler
   const handleAddChampion = async (championId: string) => {
-      // Check if already exists
       if (championList.some(c => c.detail.id === championId)) return;
-
       setIsLoading(true);
       try {
           const detail = await RiotService.getChampionDetail(championId);
@@ -340,7 +330,6 @@ const App: React.FC = () => {
               setChampionList(prev => [...prev, {
                   detail,
                   role: 'Manual',
-                  // No team for manual
               }]);
               setActiveTab('Details');
           }
@@ -351,7 +340,6 @@ const App: React.FC = () => {
       }
   };
 
-  // Favorites Logic
   const toggleFavorite = () => {
       if (!gameName || !tagLine) return;
       
@@ -380,7 +368,7 @@ const App: React.FC = () => {
   };
 
   const removeFavorite = (e: React.MouseEvent, fav: SavedAccount) => {
-      e.stopPropagation(); // Prevent clicking the chip from loading it
+      e.stopPropagation();
       const newFavs = favorites.filter(f => f !== fav);
       setFavorites(newFavs);
       localStorage.setItem('favorites', JSON.stringify(newFavs));
@@ -392,35 +380,27 @@ const App: React.FC = () => {
       f.region === region
   );
 
-  // Smart Paste Handler
   const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
     const text = e.clipboardData.getData('text');
     if (text && text.includes('#')) {
       e.preventDefault();
       const [name, ...rest] = text.split('#');
-      const tag = rest.join('').trim(); // Handles cases where tag might have accidentally included extra characters, though rare.
+      const tag = rest.join('').trim();
       const nameTrimmed = name.trim();
-      
       setGameName(nameTrimmed);
       setTagLine(tag);
-      
-      // Auto-fetch on paste
       handleScout(nameTrimmed, tag);
     }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-      if (e.key === 'Enter') {
-          handleScout();
-      }
+      if (e.key === 'Enter') handleScout();
   };
 
   const handleParticipantClick = (champName: string) => {
-      // Find champ
       const exists = championList.find(c => c.detail.name === champName);
       if (exists) {
           setActiveTab('Details');
-          // Scroll to element after render
           setTimeout(() => {
               const el = document.getElementById(`champ-${exists.detail.id}`);
               if (el) el.scrollIntoView({ behavior: 'smooth' });
@@ -433,20 +413,16 @@ const App: React.FC = () => {
       setTagLine(r.tagLine);
       setRegion(r.region);
 
-      // Check if we have a snapshot to revisit past data
       if (r.snapshot) {
           setGameStartTime(r.snapshot.gameStartTime);
           setParticipants(r.snapshot.participants);
           setActiveTab('Scout');
-          setProgress(100); // Visual indicator that data is ready
-          
-          // Set Active Session for Notes
+          setProgress(100);
           setActiveSearchTimestamp(r.timestamp);
           setCurrentNote(r.notes || '');
 
           setIsLoading(true);
           try {
-              // Reconstruct Details Tab data
               const newList = await loadChampionDetailsForList(r.snapshot.participants);
               setChampionList(newList);
           } catch(e) {
@@ -455,18 +431,16 @@ const App: React.FC = () => {
               setIsLoading(false);
           }
       } else {
-          // Legacy behavior: fresh scout
           handleScout(r.gameName, r.tagLine);
       }
   };
 
-  // Derive simple array for components that don't need roles
   const simpleChampions = championList.map(c => c.detail);
 
   return (
     <div className={`min-h-screen transition-colors duration-500 ${getThemeClasses()} pb-10`}>
         
-        {/* Sticky Header Wrapper - Consolidated to prevent overlapping */}
+        {/* Sticky Header Wrapper */}
         <div className="sticky top-0 z-50 flex flex-col">
             <header className={`p-4 backdrop-blur-xl border-b shadow-sm transition-colors duration-500 ${isLightTheme ? 'bg-white/60 border-gray-200/50' : 'bg-black/20 border-white/5'}`}>
                 <div className="max-w-4xl mx-auto flex flex-col gap-4">
@@ -484,11 +458,44 @@ const App: React.FC = () => {
                                      <span className="font-mono font-bold text-sm tracking-wider">{elapsedTime}</span>
                                  </div>
                              )}
+                            <button 
+                                onClick={() => setShowSettings(!showSettings)}
+                                className={`p-1.5 rounded-lg transition-colors ${showSettings ? 'bg-blue-500/20 text-blue-500' : 'opacity-60 hover:opacity-100'}`}
+                            >
+                                <IconSettings />
+                            </button>
                             <button onClick={() => setShowChangelog(true)} className="text-xs font-bold opacity-60 hover:opacity-100">
                                 v{APP_VERSION}
                             </button>
                         </div>
                     </div>
+
+                    {/* Settings Panel (Collapsible) */}
+                    {showSettings && (
+                        <div className={`p-3 rounded-xl border animate-fade-in ${isLightTheme ? 'bg-white/50 border-gray-200' : 'bg-white/5 border-white/10'}`}>
+                             <div className="flex flex-col gap-2">
+                                <div className="flex justify-between items-center">
+                                    <label className={`text-xs font-bold uppercase tracking-wider ${isLightTheme ? 'text-gray-600' : 'text-gray-300'}`}>
+                                        Global Ability Haste
+                                    </label>
+                                    <span className="text-xs font-mono font-bold text-blue-500">{globalHaste} AH</span>
+                                </div>
+                                <input 
+                                    type="range" 
+                                    min="0" 
+                                    max="150" 
+                                    value={globalHaste} 
+                                    onChange={(e) => handleSetHaste(Number(e.target.value))}
+                                    className={`w-full h-2 rounded-lg appearance-none cursor-pointer ${isLightTheme ? 'bg-gray-200 accent-blue-500' : 'bg-gray-700 accent-blue-500'}`}
+                                />
+                                <div className="flex justify-between text-[9px] opacity-60 font-mono">
+                                    <span>0</span>
+                                    <span>≈ {(globalHaste / (100 + globalHaste) * 100).toFixed(0)}% CDR</span>
+                                    <span>150</span>
+                                </div>
+                             </div>
+                        </div>
+                    )}
 
                     {/* Search Bar */}
                     <div className="flex gap-2 items-center">
@@ -524,7 +531,6 @@ const App: React.FC = () => {
                             }`}
                         />
                         
-                        {/* Favorite Toggle */}
                         <button 
                             onClick={toggleFavorite}
                             className={`p-2 rounded-lg border transition-all ${
@@ -722,7 +728,7 @@ const App: React.FC = () => {
                     {simpleChampions.length > 0 && (
                         <div>
                             <h2 className={`text-sm font-bold uppercase mb-3 px-1 ${isLightTheme ? 'text-gray-600' : 'text-gray-400'}`}>High Priority Spells</h2>
-                            <AbilitiesPanel champions={simpleChampions} globalHaste={0} theme={theme} />
+                            <AbilitiesPanel champions={simpleChampions} globalHaste={globalHaste} theme={theme} />
                         </div>
                     )}
                 </div>
@@ -731,7 +737,7 @@ const App: React.FC = () => {
             {activeTab === 'Details' && (
                 <ChampionDetailCard 
                     items={championList} 
-                    globalHaste={0} 
+                    globalHaste={globalHaste} 
                     theme={theme} 
                     onAddChampion={handleAddChampion}
                 />

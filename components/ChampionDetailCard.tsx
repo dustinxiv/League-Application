@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useRef } from 'react';
 import { ChampionDetail, ChampionSpell, Theme, ChampionListItem, Role } from '../types';
 import RiotService from '../services/riotService';
@@ -288,7 +289,7 @@ const SingleChampionCard: React.FC<SingleChampionCardProps> = ({ champion, globa
   const isLightTheme = theme === 'Light' || theme === 'Piltover' || theme === 'Winter Wonder' || theme === 'Ionia';
 
   return (
-    <div id={id} className={`rounded-xl overflow-hidden border shadow-lg mb-4 scroll-mt-32 transition-colors ${
+    <div id={id} className={`rounded-xl overflow-hidden border shadow-lg mb-4 scroll-mt-48 transition-colors ${
         isLightTheme ? 'bg-white border-gray-200' : 'bg-black/40 border-white/10 backdrop-blur-md'
     }`}>
       {/* Header Splash (Interactive) */}
@@ -439,7 +440,7 @@ const ChampionDetailList: React.FC<ChampionDetailListProps> = ({ items, globalHa
     const addSearchResults = allChampions.filter(c => c.name.toLowerCase().includes(addSearch.toLowerCase())).slice(0, 10);
 
     return (
-        <div className="animate-fade-in pb-20">
+        <div className="animate-fade-in pb-32">
              
              <div className="mb-4 space-y-3">
                  {/* Add Champion Search */}
@@ -541,36 +542,52 @@ const ChampionDetailList: React.FC<ChampionDetailListProps> = ({ items, globalHa
                  )}
              </div>
 
-             {/* Quick Nav */}
-             {filtered.length > 0 && (
-                <div className="flex gap-2 overflow-x-auto pb-4 mb-2 no-scrollbar">
-                    {filtered.map(c => (
-                        <button 
-                            key={c.detail.id} 
-                            onClick={() => {
-                                const el = document.getElementById(`champ-${c.detail.id}`);
-                                if(el) el.scrollIntoView({behavior: 'smooth'});
-                            }}
-                            className="shrink-0 relative group"
-                        >
-                            <div className={`absolute inset-0 rounded-full border-2 border-transparent transition-colors z-10 ${
-                                c.team === 'Blue' ? 'group-hover:border-blue-500' : c.team === 'Red' ? 'group-hover:border-red-500' : 'group-hover:border-green-500'
-                            }`}></div>
-                            <img src={`https://ddragon.leagueoflegends.com/cdn/${c.detail.version}/img/champion/${c.detail.image.full}`} className="w-10 h-10 rounded-full shadow-lg" />
-                            {/* Role Indicator Mini */}
-                            <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 text-[8px] bg-black/80 text-white px-1 rounded">
-                                {c.role.substring(0,3)}
-                            </div>
-                        </button>
-                    ))}
-                </div>
-             )}
-
+             {/* Main Card List */}
              {filtered.length > 0 ? filtered.map(c => (
                 <SingleChampionCard key={c.detail.id} champion={c.detail} globalHaste={globalHaste} id={`champ-${c.detail.id}`} theme={theme} />
              )) : (
                 <div className={`text-center py-20 ${isLightTheme ? 'text-gray-400' : 'text-gray-600'}`}>
                     {items.length === 0 ? 'Start by searching or adding a champion.' : 'No champions match filter'}
+                </div>
+             )}
+
+             {/* Fixed Quick Nav Dock */}
+             {items.length > 0 && (
+                <div className={`fixed bottom-0 left-0 right-0 z-40 p-2 border-t backdrop-blur-xl transition-all duration-300 ${
+                    isLightTheme 
+                    ? 'bg-white/90 border-gray-200 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]' 
+                    : 'bg-gray-900/90 border-white/10 shadow-[0_-4px_20px_-1px_rgba(0,0,0,0.5)]'
+                }`}>
+                    <div className="flex gap-3 overflow-x-auto no-scrollbar px-2 py-1 items-center justify-start md:justify-center">
+                        {filtered.map(c => (
+                            <button 
+                                key={c.detail.id} 
+                                onClick={() => {
+                                    const el = document.getElementById(`champ-${c.detail.id}`);
+                                    if(el) el.scrollIntoView({behavior: 'smooth'});
+                                }}
+                                className="shrink-0 relative group flex flex-col items-center gap-1 transition-transform active:scale-95"
+                            >
+                                <div className={`relative rounded-full p-0.5 transition-colors ${
+                                    c.team === 'Blue' ? 'bg-blue-500/30 group-hover:bg-blue-500' : c.team === 'Red' ? 'bg-red-500/30 group-hover:bg-red-500' : 'bg-gray-500/30 group-hover:bg-green-500'
+                                }`}>
+                                    <img 
+                                        src={`https://ddragon.leagueoflegends.com/cdn/${c.detail.version}/img/champion/${c.detail.image.full}`} 
+                                        className="w-10 h-10 rounded-full" 
+                                        alt={c.detail.name}
+                                    />
+                                    {/* Role Badge */}
+                                    <div className="absolute -bottom-1 -right-1 bg-black text-white text-[8px] px-1 rounded-full border border-gray-600 font-bold uppercase">
+                                        {c.role === 'Manual' ? 'M' : c.role.substring(0,1)}
+                                    </div>
+                                </div>
+                            </button>
+                        ))}
+                        
+                        {filtered.length === 0 && (
+                            <span className="text-xs opacity-50 mx-auto">No champions match filter</span>
+                        )}
+                    </div>
                 </div>
              )}
         </div>
