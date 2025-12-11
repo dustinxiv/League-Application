@@ -39,9 +39,10 @@ const App: React.FC = () => {
   // Settings State
   const [globalHaste, setGlobalHaste] = useState(0);
 
-  // Notes State
+  // Notes & Session State
   const [activeSearchTimestamp, setActiveSearchTimestamp] = useState<number | null>(null);
   const [currentNote, setCurrentNote] = useState('');
+  const [isLiveGame, setIsLiveGame] = useState(true);
   
   // Data State
   const [participants, setParticipants] = useState<EnrichedParticipant[]>([]);
@@ -98,6 +99,20 @@ const App: React.FC = () => {
         return;
     }
     
+    // If viewing history (not live), show fixed duration at time of snapshot
+    if (!isLiveGame && activeSearchTimestamp) {
+        const diff = activeSearchTimestamp - gameStartTime;
+        if (diff < 0) {
+             setElapsedTime('00:00');
+             return;
+        }
+        const seconds = Math.floor(diff / 1000);
+        const mm = Math.floor(seconds / 60);
+        const ss = seconds % 60;
+        setElapsedTime(`${mm}:${ss.toString().padStart(2, '0')}`);
+        return;
+    }
+    
     const updateTimer = () => {
         const now = Date.now();
         const diff = now - gameStartTime;
@@ -114,7 +129,7 @@ const App: React.FC = () => {
     updateTimer();
     const interval = setInterval(updateTimer, 1000);
     return () => clearInterval(interval);
-  }, [gameStartTime]);
+  }, [gameStartTime, isLiveGame, activeSearchTimestamp]);
 
   // Theme Logic
   const handleSetTheme = (t: Theme) => {
@@ -236,6 +251,7 @@ const App: React.FC = () => {
           return;
       }
       setIsLoading(true);
+      setIsLiveGame(true);
       setError('');
       setProgress(10);
       setParticipants([]);
@@ -414,6 +430,7 @@ const App: React.FC = () => {
       setRegion(r.region);
 
       if (r.snapshot) {
+          setIsLiveGame(false);
           setGameStartTime(r.snapshot.gameStartTime);
           setParticipants(r.snapshot.participants);
           setActiveTab('Scout');
@@ -452,9 +469,15 @@ const App: React.FC = () => {
                         <div className="flex items-center gap-3">
                              {gameStartTime !== null && (
                                  <div className={`flex items-center gap-2 px-2 py-1 rounded-md border shadow-sm ${
-                                     isLightTheme ? 'bg-white/80 border-red-100 text-red-600' : 'bg-black/40 border-red-500/20 text-red-400'
+                                     isLiveGame
+                                     ? (isLightTheme ? 'bg-white/80 border-red-100 text-red-600' : 'bg-black/40 border-red-500/20 text-red-400')
+                                     : (isLightTheme ? 'bg-white/80 border-gray-200 text-gray-500' : 'bg-black/40 border-white/10 text-gray-400')
                                  }`}>
-                                     <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.6)]" />
+                                     <div className={`w-2 h-2 rounded-full ${
+                                         isLiveGame 
+                                         ? 'bg-red-500 animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.6)]' 
+                                         : 'bg-gray-400'
+                                     }`} />
                                      <span className="font-mono font-bold text-sm tracking-wider">{elapsedTime}</span>
                                  </div>
                              )}
