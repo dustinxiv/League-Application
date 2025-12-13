@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import RiotService from './services/riotService';
+import StorageService from './services/storageService'; // Import the new service
 import AbilitiesPanel from './components/AbilitiesPanel';
 import ChampionDetailCard from './components/ChampionDetailCard';
 import StatsPanel from './components/StatsPanel';
@@ -8,6 +9,7 @@ import MultiSearchPanel from './components/MultiSearchPanel';
 import StudioPanel from './components/StudioPanel';
 import ChangelogModal from './components/ChangelogModal';
 import ConfirmationModal from './components/ConfirmationModal';
+import HistoryPanel from './components/HistoryPanel';
 import { ChampionDetail, Theme, EnrichedParticipant, SavedGame, SavedAccount, ChampionListItem, Role, RecentSearch } from './types';
 
 // Icons
@@ -19,13 +21,15 @@ const IconSettings = () => <svg className="w-5 h-5" fill="none" stroke="currentC
 
 type Tab = 'Scout' | 'Details' | 'Stats' | 'Studio';
 
-const APP_VERSION = '1.5';
+const APP_VERSION = '1.6'; // Bump version for new history features
 
 const App: React.FC = () => {
+  // We initialize with defaults, but data will be overwritten on mount by StorageService
   const [theme, setTheme] = useState<Theme>('Dark');
   const [activeTab, setActiveTab] = useState<Tab>('Scout');
   const [showChangelog, setShowChangelog] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [appReady, setAppReady] = useState(false); // New flag to prevent flash of wrong content
   
   // Search State
   const [gameName, setGameName] = useState('');
@@ -46,50 +50,34 @@ const App: React.FC = () => {
   
   // Data State
   const [participants, setParticipants] = useState<EnrichedParticipant[]>([]);
-  
-  // Revised: championList stores enriched data (with role/team), champions prop derived from it for compatibility
   const [championList, setChampionList] = useState<ChampionListItem[]>([]);
   
   const [gameStartTime, setGameStartTime] = useState<number | null>(null);
   const [elapsedTime, setElapsedTime] = useState('00:00');
   const [progress, setProgress] = useState(0);
 
-  // Init
+  // Init - Data Loading
   useEffect(() => {
     RiotService.init();
-    const savedTheme = localStorage.getItem('theme') as Theme;
-    if (savedTheme) setTheme(savedTheme);
 
-    const savedHaste = localStorage.getItem('globalHaste');
-    if (savedHaste) setGlobalHaste(parseInt(savedHaste));
+    const loadData = async () => {
+        const data = await StorageService.init();
+        
+        setTheme(data.theme);
+        setGlobalHaste(data.globalHaste);
+        setFavorites(data.favorites);
+        setRecentSearches(data.recentSearches);
+        
+        // Version Check
+        if (data.appVersion !== APP_VERSION) {
+            setShowChangelog(true);
+            StorageService.save('appVersion', APP_VERSION);
+        }
 
-    const lastVersion = localStorage.getItem('app_version');
-    if (lastVersion !== APP_VERSION) {
-        setShowChangelog(true);
-        localStorage.setItem('app_version', APP_VERSION);
-    }
+        setAppReady(true);
+    };
 
-    const savedFavs = localStorage.getItem('favorites');
-    if (savedFavs) {
-        try {
-            setFavorites(JSON.parse(savedFavs));
-        } catch (e) { console.error('Failed to parse favorites'); }
-    } else {
-        // Default presets
-        const presets: SavedAccount[] = [
-            { gameName: 'dustinthewind', tagLine: 'joeyc', region: 'NA' },
-            { gameName: 'dustbyte', tagLine: 'joeyc', region: 'NA' }
-        ];
-        setFavorites(presets);
-        localStorage.setItem('favorites', JSON.stringify(presets));
-    }
-
-    const savedRecents = localStorage.getItem('recentSearches');
-    if (savedRecents) {
-        try {
-            setRecentSearches(JSON.parse(savedRecents));
-        } catch (e) { console.error('Failed to parse recents'); }
-    }
+    loadData();
   }, []);
 
   // Timer Logic
@@ -134,12 +122,12 @@ const App: React.FC = () => {
   // Theme Logic
   const handleSetTheme = (t: Theme) => {
       setTheme(t);
-      localStorage.setItem('theme', t);
+      StorageService.save('theme', t);
   };
 
   const handleSetHaste = (val: number) => {
       setGlobalHaste(val);
-      localStorage.setItem('globalHaste', val.toString());
+      StorageService.save('globalHaste', val);
   };
 
   const getThemeClasses = () => {
@@ -181,15 +169,32 @@ const App: React.FC = () => {
              );
           }
           
-          const newRecents = [search, ...filtered].slice(0, 10);
-          localStorage.setItem('recentSearches', JSON.stringify(newRecents));
+          // Limit to 20 for history, but since we have a full panel now, user can manage deletion
+          const newRecents = [search, ...filtered].slice(0, 20);
+          StorageService.save('recentSearches', newRecents);
           return newRecents;
       });
   };
 
-  const clearHistory = () => {
-      setRecentSearches([]);
-      localStorage.removeItem('recentSearches');
+  const updateHistoryItem = (updated: RecentSearch) => {
+      setRecentSearches(prev => {
+          const newRecents = prev.map(r => r.timestamp === updated.timestamp ? updated : r);
+          StorageService.save('recentSearches', newRecents);
+          return newRecents;
+      });
+      
+      // If updating the currently active game (via Notes or Edit), update local state too
+      if (updated.timestamp === activeSearchTimestamp) {
+          if (updated.notes !== undefined) setCurrentNote(updated.notes);
+      }
+  };
+
+  const deleteHistoryItem = (timestamp: number) => {
+      setRecentSearches(prev => {
+          const newRecents = prev.filter(r => r.timestamp !== timestamp);
+          StorageService.save('recentSearches', newRecents);
+          return newRecents;
+      });
   };
 
   const updateActiveNote = (note: string) => {
@@ -202,20 +207,10 @@ const App: React.FC = () => {
                   }
                   return r;
               });
-              localStorage.setItem('recentSearches', JSON.stringify(updated));
+              StorageService.save('recentSearches', updated);
               return updated;
           });
       }
-  };
-
-  const formatTimeAgo = (timestamp: number) => {
-      const seconds = Math.floor((Date.now() - timestamp) / 1000);
-      if (seconds < 60) return 'Just now';
-      const minutes = Math.floor(seconds / 60);
-      if (minutes < 60) return `${minutes}m ago`;
-      const hours = Math.floor(minutes / 60);
-      if (hours < 24) return `${hours}h ago`;
-      return `${Math.floor(hours / 24)}d ago`;
   };
 
   const loadChampionDetailsForList = async (parts: EnrichedParticipant[]) => {
@@ -373,7 +368,7 @@ const App: React.FC = () => {
       }
       
       setFavorites(newFavs);
-      localStorage.setItem('favorites', JSON.stringify(newFavs));
+      StorageService.save('favorites', newFavs);
   };
 
   const loadFavorite = (fav: SavedAccount) => {
@@ -387,7 +382,7 @@ const App: React.FC = () => {
       e.stopPropagation();
       const newFavs = favorites.filter(f => f !== fav);
       setFavorites(newFavs);
-      localStorage.setItem('favorites', JSON.stringify(newFavs));
+      StorageService.save('favorites', newFavs);
   };
 
   const isCurrentFavorite = favorites.some(f => 
@@ -453,6 +448,10 @@ const App: React.FC = () => {
   };
 
   const simpleChampions = championList.map(c => c.detail);
+
+  if (!appReady) {
+      return <div className="min-h-screen bg-gray-950 flex items-center justify-center text-gray-500 font-mono text-sm">Syncing Data...</div>;
+  }
 
   return (
     <div className={`min-h-screen transition-colors duration-500 ${getThemeClasses()} pb-10`}>
@@ -652,65 +651,15 @@ const App: React.FC = () => {
         <main className="max-w-4xl mx-auto p-4 min-h-[50vh]">
             {activeTab === 'Scout' && (
                 <div className="space-y-6">
-                    {/* Recent History Panel */}
+                    {/* Recent History Panel - UPDATED */}
                     {recentSearches.length > 0 && (
-                         <div className={`rounded-xl border p-3 ${
-                             isLightTheme ? 'bg-white/60 border-gray-200' : 'bg-white/5 border-white/5'
-                         }`}>
-                             <div className="flex justify-between items-center mb-2 px-1">
-                                 <h3 className={`text-xs font-bold uppercase tracking-widest ${isLightTheme ? 'text-gray-500' : 'text-gray-400'}`}>
-                                     Recent History
-                                 </h3>
-                                 <button onClick={clearHistory} className="text-[10px] opacity-50 hover:opacity-100 hover:text-red-400 transition-colors">
-                                     Clear
-                                 </button>
-                             </div>
-                             <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">
-                                 {recentSearches.map((r, i) => {
-                                     const champ = RiotService.getChampionByKey(r.championId);
-                                     const img = champ 
-                                         ? `https://ddragon.leagueoflegends.com/cdn/${RiotService.getVersion()}/img/champion/${champ.image.full}`
-                                         : null;
-                                     
-                                     // Highlight active search
-                                     const isActive = r.timestamp === activeSearchTimestamp;
-
-                                     return (
-                                        <button 
-                                            key={i}
-                                            onClick={() => handleRecentClick(r)}
-                                            className={`shrink-0 flex items-center gap-3 p-2 pr-4 rounded-lg border transition-all text-left min-w-[140px] relative overflow-hidden ${
-                                                isActive
-                                                ? (isLightTheme ? 'bg-blue-50 border-blue-400 ring-1 ring-blue-400' : 'bg-blue-900/20 border-blue-500 ring-1 ring-blue-500')
-                                                : (isLightTheme ? 'bg-white hover:bg-gray-50 border-gray-200' : 'bg-black/20 hover:bg-white/10 border-white/10')
-                                            }`}
-                                        >
-                                            {r.notes && (
-                                                <div className="absolute top-0 right-0 w-3 h-3">
-                                                    <div className="absolute top-0 right-0 border-t-[12px] border-r-[12px] border-t-transparent border-r-yellow-500"></div>
-                                                </div>
-                                            )}
-
-                                            {img ? (
-                                                <img src={img} className="w-8 h-8 rounded-full border border-gray-500/30" alt="" />
-                                            ) : (
-                                                <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs ${isLightTheme ? 'bg-gray-200 text-gray-500' : 'bg-white/10 text-gray-400'}`}>
-                                                    {r.gameName[0]}
-                                                </div>
-                                            )}
-                                            <div className="flex flex-col min-w-0">
-                                                <span className={`text-xs font-bold truncate w-20 ${isLightTheme ? 'text-gray-800' : 'text-gray-200'}`}>
-                                                    {r.gameName}
-                                                </span>
-                                                <span className={`text-[9px] ${isLightTheme ? 'text-gray-400' : 'text-gray-500'}`}>
-                                                    {formatTimeAgo(r.timestamp)}
-                                                </span>
-                                            </div>
-                                        </button>
-                                     );
-                                 })}
-                             </div>
-                         </div>
+                        <HistoryPanel 
+                            history={recentSearches}
+                            onLoad={handleRecentClick}
+                            onUpdate={updateHistoryItem}
+                            onDelete={deleteHistoryItem}
+                            theme={theme}
+                        />
                     )}
                     
                     {/* Game Notes - Visible if active session exists */}

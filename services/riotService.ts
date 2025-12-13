@@ -105,7 +105,11 @@ class RiotService {
   private async request(url: string, apiKey: string, retries = 2): Promise<any> {
     const key = apiKey || DEFAULT_API_KEY;
     const separator = url.includes('?') ? '&' : '?';
-    const targetUrl = `${url}${separator}api_key=${key}`;
+    
+    // CRITICAL FIX: Append a unique timestamp to the Riot API request itself.
+    // This forces proxies (CorsProxy, AllOrigins, etc.) to treat it as a new resource
+    // and bypass their internal caches, ensuring we don't get stale game data.
+    const targetUrl = `${url}${separator}api_key=${key}&_t=${Date.now()}`;
     const encodedTarget = encodeURIComponent(targetUrl);
     
     // Updated Proxy Order for better stability
@@ -113,7 +117,7 @@ class RiotService {
         // CorsProxy.io - Often most reliable and fast
         (target: string) => `https://corsproxy.io/?${target}`,
         // AllOrigins - Raw mode
-        (target: string) => `https://api.allorigins.win/raw?url=${target}&timestamp=${Date.now()}`,
+        (target: string) => `https://api.allorigins.win/raw?url=${target}`,
         // CodeTabs - Good backup, handles headers well
         (target: string) => `https://api.codetabs.com/v1/proxy?quest=${target}`
     ];

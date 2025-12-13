@@ -1,5 +1,4 @@
 
-
 export type Theme = 'Dark' | 'Light' | 'Piltover' | 'Shadow Isles' | 'Bilgewater' | 'Ionia' | 'Shurima' | 'iOS 18 Glass' | 'Winter Wonder';
 
 export interface ChampionSimple {
@@ -179,6 +178,11 @@ export interface SavedAccount {
   region: string;
 }
 
+export interface SearchTag {
+    championId: number;
+    teamId: number; // 100 or 200
+}
+
 export interface RecentSearch {
   gameName: string;
   tagLine: string;
@@ -186,6 +190,8 @@ export interface RecentSearch {
   championId: number;
   timestamp: number;
   notes?: string;
+  customTitle?: string;
+  tags?: SearchTag[];
   snapshot?: {
       participants: EnrichedParticipant[];
       gameStartTime: number;
