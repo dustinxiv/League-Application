@@ -1,5 +1,5 @@
 
-import { ChampionSimple, ChampionDetail, RiotAccount, LiveGameInfo, RegionConfig, LeagueEntry, ChampionMastery } from '../types';
+import { ChampionSimple, ChampionDetail, RiotAccount, LiveGameInfo, RegionConfig, LeagueEntry, ChampionMastery, MatchV5DTO } from '../types';
 
 const DEFAULT_API_KEY = 'RGAPI-0339b92e-ce0f-48b0-948c-af1b6b6c5224';
 
@@ -7,11 +7,13 @@ const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 class RiotService {
   private static instance: RiotService;
-  private version: string = '15.1.1'; // Updated default version
+  private version: string = '15.1.1';
   private championsCache: Record<string, ChampionSimple> | null = null;
   private championDetailsCache: Record<string, ChampionDetail> = {};
   private championKeyMap: Record<string, ChampionSimple> = {};
   private summonerIdCache: Record<string, string> = {};
+  private runeMap: Record<number, string> = {};
+  private summonerSpellMap: Record<number, string> = {};
 
   private constructor() {}
 
@@ -24,17 +26,72 @@ class RiotService {
 
   public async init(): Promise<void> {
     try {
-      const response = await fetch('https://ddragon.leagueoflegends.com/api/versions.json');
-      if (response.ok) {
-        const versions = await response.json();
+      const vResponse = await fetch('https://ddragon.leagueoflegends.com/api/versions.json');
+      if (vResponse.ok) {
+        const versions = await vResponse.json();
         this.version = versions[0];
       }
-      await this.getAllChampions();
+      
+      // Parallel fetch champions, runes, and summoner spells
+      await Promise.all([
+        this.getAllChampions(),
+        this.initRunes(),
+        this.initSummoners()
+      ]);
     } catch (e) {
-      console.warn('Failed to fetch DDragon version, using fallback:', this.version);
-      // Even if version fetch fails, try to load champs with fallback version
+      console.warn('Failed to fetch DDragon data, using fallbacks');
       await this.getAllChampions();
     }
+  }
+
+  private async initRunes(): Promise<void> {
+    try {
+      const response = await fetch(`https://ddragon.leagueoflegends.com/cdn/${this.version}/data/en_US/runesReforged.json`);
+      if (!response.ok) return;
+      const data = await response.json();
+      
+      const map: Record<number, string> = {};
+      data.forEach((path: any) => {
+          // Map the path (style) icon itself
+          map[path.id] = path.icon;
+          path.slots.forEach((slot: any) => {
+              slot.runes.forEach((rune: any) => {
+                  map[rune.id] = rune.icon;
+              });
+          });
+      });
+      this.runeMap = map;
+    } catch (e) {
+      console.error('Failed to init runes', e);
+    }
+  }
+
+  private async initSummoners(): Promise<void> {
+    try {
+      const response = await fetch(`https://ddragon.leagueoflegends.com/cdn/${this.version}/data/en_US/summoner.json`);
+      if (!response.ok) return;
+      const data = await response.json();
+      
+      Object.values(data.data).forEach((spell: any) => {
+          this.summonerSpellMap[parseInt(spell.key)] = spell.image.full;
+      });
+    } catch (e) {
+      console.error('Failed to init summoner spells', e);
+    }
+  }
+
+  public getRuneIcon(id: number | undefined): string {
+    if (!id || !this.runeMap[id]) return '';
+    return `https://ddragon.leagueoflegends.com/cdn/img/${this.runeMap[id]}`;
+  }
+  
+  public getSummonerSpellIcon(id: number | undefined): string | null {
+      if (!id || !this.summonerSpellMap[id]) return null;
+      return `https://ddragon.leagueoflegends.com/cdn/${this.version}/img/spell/${this.summonerSpellMap[id]}`;
+  }
+
+  public getKeystoneIcon(id: number | undefined): string {
+    return this.getRuneIcon(id);
   }
 
   public getVersion(): string {
@@ -52,7 +109,6 @@ class RiotService {
         this.championKeyMap[c.key] = c;
       });
 
-      // MANUAL FIX: Ensure Zeri (221) is mapped if cache missed/lagged
       if (!this.championKeyMap['221'] && this.championsCache && this.championsCache['Zeri']) {
           this.championKeyMap['221'] = this.championsCache['Zeri'];
       }
@@ -63,7 +119,6 @@ class RiotService {
     }
   }
 
-  // Returns a simple list for Autocomplete UI
   public getChampionSummaryList(): {name: string, id: string, image: string}[] {
     if (!this.championsCache) return [];
     return Object.values(this.championsCache).map(c => ({
@@ -82,43 +137,26 @@ class RiotService {
     try {
       const response = await fetch(`https://ddragon.leagueoflegends.com/cdn/${this.version}/data/en_US/champion/${id}.json`);
       if (!response.ok) return null;
-      
       const data = await response.json();
-      
-      // SAFETY CHECK: Ensure the specific ID exists in the data payload
       const detail = data.data[id] as ChampionDetail;
-      if (!detail) {
-          console.warn(`Champion details for ${id} were missing in response.`);
-          return null;
-      }
-
+      if (!detail) return null;
       if (!detail.version) detail.version = this.version;
       this.championDetailsCache[id] = detail;
       return detail;
     } catch (e) {
-      console.error(`Error fetching detail for ${id}`, e);
       return null;
     }
   }
 
-  // --- WEB REQUEST HANDLER (PROXY ROTATION + RETRY) ---
   private async request(url: string, apiKey: string, retries = 2): Promise<any> {
     const key = apiKey || DEFAULT_API_KEY;
     const separator = url.includes('?') ? '&' : '?';
-    
-    // CRITICAL FIX: Append a unique timestamp to the Riot API request itself.
-    // This forces proxies (CorsProxy, AllOrigins, etc.) to treat it as a new resource
-    // and bypass their internal caches, ensuring we don't get stale game data.
     const targetUrl = `${url}${separator}api_key=${key}&_t=${Date.now()}`;
     const encodedTarget = encodeURIComponent(targetUrl);
     
-    // Updated Proxy Order for better stability
     const proxies = [
-        // CorsProxy.io - Often most reliable and fast
         (target: string) => `https://corsproxy.io/?${target}`,
-        // AllOrigins - Raw mode
         (target: string) => `https://api.allorigins.win/raw?url=${target}`,
-        // CodeTabs - Good backup, handles headers well
         (target: string) => `https://api.codetabs.com/v1/proxy?quest=${target}`
     ];
 
@@ -127,41 +165,29 @@ class RiotService {
     for (const createProxyUrl of proxies) {
         try {
             const proxyUrl = createProxyUrl(encodedTarget);
-            
             const controller = new AbortController();
-            // Increased timeout to 15s for stability
             const id = setTimeout(() => controller.abort(), 15000); 
 
             const res = await fetch(proxyUrl, { signal: controller.signal });
             clearTimeout(id);
 
-            // Handle Rate Limiting (429) - Retry logic
             if (res.status === 429) {
                 if (retries > 0) {
-                    // console.warn(`Rate Limit hit. Retrying in 2s... (${retries} left)`);
-                    await wait(2500); // Increased wait time slightly
+                    await wait(2500);
                     return this.request(url, apiKey, retries - 1);
                 } else {
                     throw new Error('429 Rate Limit Exceeded');
                 }
             }
 
-            if (res.status === 403) throw new Error('403 Forbidden (Check API Key)');
-            if (res.status === 404) return null; // Not found is valid (e.g. not in game)
-            
+            if (res.status === 403) throw new Error('403 Forbidden');
+            if (res.status === 404) return null;
             if (!res.ok) throw new Error(`Proxy HTTP ${res.status}`);
             
             const text = await res.text();
             let data;
-            try {
-                data = JSON.parse(text);
-            } catch (jsonError) {
-                // If proxy returns HTML error page (502/504), treat as failure and rotate
-                // console.warn('Proxy returned non-JSON', proxyUrl);
-                throw new Error('Proxy returned non-JSON response');
-            }
+            try { data = JSON.parse(text); } catch (e) { throw new Error('Non-JSON'); }
             
-            // Validate inner status from proxy wrappers (if any)
             if (data && data.status && data.status.status_code) {
                  if (data.status.status_code === 404) return null;
                  if (data.status.status_code === 429) {
@@ -169,25 +195,14 @@ class RiotService {
                         await wait(2500);
                         return this.request(url, apiKey, retries - 1);
                      }
-                     throw new Error('Riot API Rate Limit');
+                     throw new Error('Riot Rate Limit');
                  }
-                 if (data.status.status_code >= 400) throw new Error(`Riot API Error: ${data.status.message}`);
-            }
-
-            // Check for generic proxy error strings
-            if (data.Error || (data.contents && data.status?.url)) {
-                 throw new Error('Invalid Proxy Response');
             }
 
             return data;
-        } catch (e) {
-            lastError = e;
-            // console.warn('Proxy attempt failed, trying next...', e);
-        }
+        } catch (e) { lastError = e; }
     }
-
-    console.error('All proxies failed.', lastError);
-    throw new Error('Network Error: Failed to connect to Riot API via proxies. Please try again.');
+    throw new Error('All proxies failed');
   }
 
   public async getAccount(gameName: string, tagLine: string, region: string, apiKey: string): Promise<RiotAccount> {
@@ -195,9 +210,8 @@ class RiotService {
     const safeName = encodeURIComponent(gameName);
     const safeTag = encodeURIComponent(tagLine);
     const url = `https://${routing.region}.api.riotgames.com/riot/account/v1/accounts/by-riot-id/${safeName}/${safeTag}`;
-    
     const data = await this.request(url, apiKey);
-    if (!data) throw new Error('Account not found (404)');
+    if (!data) throw new Error('Account not found');
     return data;
   }
 
@@ -205,12 +219,27 @@ class RiotService {
     const routing = this.getRegionRouting(region);
     const url = `https://${routing.platform}.api.riotgames.com/lol/spectator/v5/active-games/by-summoner/${puuid}`;
     const data = await this.request(url, apiKey);
-    
-    // Strict validation: Must contain participants array
-    if (data && Array.isArray(data.participants)) {
-        return data;
-    }
+    if (data && Array.isArray(data.participants)) return data;
     return null;
+  }
+
+  public async getMatchIds(puuid: string, region: string, apiKey: string, start: number = 0, count: number = 10): Promise<string[]> {
+    const routing = this.getRegionRouting(region);
+    const url = `https://${routing.region}.api.riotgames.com/lol/match/v5/matches/by-puuid/${puuid}/ids?start=${start}&count=${count}`;
+    try {
+      const data = await this.request(url, apiKey);
+      return Array.isArray(data) ? data : [];
+    } catch (e) { return []; }
+  }
+
+  public async getMatchDetail(matchId: string, region: string, apiKey: string): Promise<MatchV5DTO | null> {
+    const routing = this.getRegionRouting(region);
+    const url = `https://${routing.region}.api.riotgames.com/lol/match/v5/matches/${matchId}`;
+    try {
+      const data = await this.request(url, apiKey);
+      if (data && data.info) return data;
+      return null;
+    } catch (e) { return null; }
   }
 
   public async getSummonerByPuuid(puuid: string, region: string, apiKey: string): Promise<{id: string, accountId: string} | null> {
@@ -230,13 +259,11 @@ class RiotService {
   public async getLeagueEntries(summonerId: string | undefined, puuid: string, region: string, apiKey: string): Promise<LeagueEntry[]> {
     const routing = this.getRegionRouting(region);
     let targetId = summonerId;
-
     if (!targetId || targetId === 'undefined') {
         const summoner = await this.getSummonerByPuuid(puuid, region, apiKey);
         if (summoner) targetId = summoner.id;
         else return [];
     }
-
     const url = `https://${routing.platform}.api.riotgames.com/lol/league/v4/entries/by-summoner/${targetId}`;
     try {
       const data = await this.request(url, apiKey);
@@ -253,27 +280,18 @@ class RiotService {
     } catch (e) { return []; }
   }
 
-  // --- Helper for Gemini Image Editing ---
   public async imageUrlToBase64(url: string): Promise<string | null> {
     try {
-        // Try proxy first since direct fetch fails CORS on web
         const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(url)}`;
         const response = await fetch(proxyUrl);
-        if (!response.ok) throw new Error('Failed to fetch image via proxy');
         const blob = await response.blob();
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
-            reader.onloadend = () => {
-                const base64String = reader.result as string;
-                const base64Data = base64String.split(',')[1];
-                resolve(base64Data);
-            };
+            reader.onloadend = () => resolve((reader.result as string).split(',')[1]);
             reader.onerror = reject;
             reader.readAsDataURL(blob);
         });
-    } catch (e) {
-        return null;
-    }
+    } catch (e) { return null; }
   }
 
   private getRegionRouting(regionCode: string): RegionConfig {
@@ -289,9 +307,7 @@ class RiotService {
   public getChampionIdToNameMap(): Record<string, string> {
     const map: Record<string, string> = {};
     if (!this.championsCache) return map;
-    Object.values(this.championsCache).forEach(c => {
-      map[c.key] = c.id;
-    });
+    Object.values(this.championsCache).forEach(c => { map[c.key] = c.id; });
     return map;
   }
 }

@@ -6,12 +6,13 @@ import { ChampionDetail, Theme } from '../types';
 interface StatsPanelProps {
   champions: ChampionDetail[];
   theme: Theme;
+  globalHaste: number;
 }
 
 type FilterType = 'All' | 'Blue' | 'Red' | 'Top' | 'Jungle' | 'Mid' | 'Bot' | 'Support';
 type SortType = 'Alphabetical' | 'Value';
 
-const StatsPanel: React.FC<StatsPanelProps> = ({ champions, theme }) => {
+const StatsPanel: React.FC<StatsPanelProps> = ({ champions, theme, globalHaste }) => {
   const [activeCategory, setActiveCategory] = useState<'Ultimates' | 'Combat' | 'Defense'>('Ultimates');
   const [filterType, setFilterType] = useState<FilterType>('All');
   const [sortType, setSortType] = useState<SortType>('Value');
@@ -40,19 +41,20 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ champions, theme }) => {
       return <div className={`p-10 text-center ${isLightTheme ? 'text-gray-500' : 'text-gray-500'}`}>No champions to compare.</div>;
   }
 
-  // Map data and preserve original index for Lane filtering
+  // Map data and apply Haste formula: CD / (1 + Haste/100)
   const rawData = champions.map((c, index) => {
     const rSpell = c.spells[3]; 
     const rCds = rSpell ? rSpell.cooldown : [];
+    const hasteMultiplier = 1 + (globalHaste / 100);
     
     const getRCd = (i: number) => {
         if (rCds.length === 0) return 0;
-        if (i < rCds.length) return rCds[i];
-        return rCds[rCds.length - 1];
+        const base = i < rCds.length ? rCds[i] : rCds[rCds.length - 1];
+        return parseFloat((base / hasteMultiplier).toFixed(1));
     };
 
     return {
-      originalIndex: index, // Crucial for identifying Blue/Red/Lane
+      originalIndex: index,
       name: c.name,
       image: c.image.full,
       version: c.version,
@@ -79,7 +81,6 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ champions, theme }) => {
 
   const metrics = getMetrics();
 
-  // Reset sort defaults when category changes
   useEffect(() => {
     setSortType('Value');
     setSortDirection('desc');
@@ -89,17 +90,11 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ champions, theme }) => {
       setSelectedChampion(prev => prev === name ? null : name);
   };
 
-  // --- 1. FILTERING LOGIC ---
   const filteredData = rawData.filter(item => {
       if (filterType === 'All') return true;
-      
       const idx = item.originalIndex;
-      
-      // Team Filters
       if (filterType === 'Blue') return idx < 5;
       if (filterType === 'Red') return idx >= 5;
-
-      // Lane Filters (Assumes standard API ordering: 0/5=Top, 1/6=Jg, etc.)
       const normalizedPos = idx % 5;
       switch(filterType) {
           case 'Top': return normalizedPos === 0;
@@ -159,7 +154,6 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ champions, theme }) => {
       );
   };
 
-  // Helper to sort data for a specific metric
   const getSortedDataForMetric = (metric: string) => {
       return [...filteredData].sort((a, b) => {
           if (sortType === 'Alphabetical') {
@@ -167,12 +161,8 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ champions, theme }) => {
                 ? a.name.localeCompare(b.name) 
                 : b.name.localeCompare(a.name);
           }
-
-          // Numeric Sort (Value)
-          // @ts-ignore
-          const valA = a[metric] || 0;
-          // @ts-ignore
-          const valB = b[metric] || 0;
+          const valA = (a as any)[metric] || 0;
+          const valB = (b as any)[metric] || 0;
           return sortDirection === 'asc' ? valA - valB : valB - valA;
       });
   };
@@ -188,10 +178,7 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ champions, theme }) => {
           : 'bg-black/20 border-white/5 backdrop-blur-md'
       }`}>
           
-          {/* Top Row: Category & Filter */}
           <div className={`flex flex-wrap items-center justify-between border-b pb-2 gap-2 ${isLightTheme ? 'border-gray-200' : 'border-white/5'}`}>
-            
-            {/* Category */}
             <div className="flex items-center gap-2">
                 <label className={`text-xs font-bold uppercase tracking-wide hidden sm:block ${isLightTheme ? 'text-gray-500' : 'text-gray-300'}`}>View:</label>
                 <select 
@@ -203,13 +190,12 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ champions, theme }) => {
                         : 'bg-black/30 text-white border-white/10'
                     }`}
                 >
-                    <option value="Ultimates">Ultimates</option>
+                    <option value="Ultimates">Ultimates {globalHaste > 0 ? '(Adjusted)' : ''}</option>
                     <option value="Combat">Combat Stats</option>
                     <option value="Defense">Defenses</option>
                 </select>
             </div>
 
-            {/* Lane Filter */}
             <div className="flex items-center gap-2">
                 <label className={`text-xs font-bold uppercase tracking-wide hidden sm:block ${isLightTheme ? 'text-gray-500' : 'text-gray-300'}`}>Filter:</label>
                 <select 
@@ -235,15 +221,12 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ champions, theme }) => {
             </div>
           </div>
 
-          {/* Bottom Row: Sorting */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
                 <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" /></svg>
                 <label className={`text-xs font-bold uppercase tracking-wide ${isLightTheme ? 'text-gray-500' : 'text-gray-300'}`}>Sort:</label>
             </div>
-            
             <div className="flex gap-2">
-                {/* Simplified Metric Selector */}
                 <select 
                     value={sortType}
                     onChange={(e) => setSortType(e.target.value as SortType)}
@@ -256,8 +239,6 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ champions, theme }) => {
                     <option value="Value">By Value</option>
                     <option value="Alphabetical">Alphabetical</option>
                 </select>
-
-                {/* Direction Toggle */}
                 <button 
                     onClick={() => setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc')}
                     className={`border rounded px-2 py-1.5 transition-colors ${
@@ -265,7 +246,6 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ champions, theme }) => {
                         ? 'bg-white hover:bg-gray-100 border-gray-200' 
                         : 'bg-black/30 hover:bg-white/10 border-white/10'
                     }`}
-                    title={sortDirection === 'asc' ? "Ascending" : "Descending"}
                 >
                     {sortDirection === 'asc' ? (
                         <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h13M3 8h9m-9 4h9m5-4v12m0 0l-4-4m4 4l4-4" /></svg>
@@ -277,7 +257,6 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ champions, theme }) => {
           </div>
       </div>
 
-      {/* Selected Champion Summary Card */}
       {selectedData && (
         <div className={`sticky top-0 z-10 p-3 rounded-xl border backdrop-blur-md animate-fade-in shadow-lg ${
             isLightTheme 
@@ -300,7 +279,7 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ champions, theme }) => {
                         <div><span className="block opacity-60 text-[8px] uppercase tracking-wider">MR</span>{selectedData.MR}</div>
                         <div><span className="block opacity-60 text-[8px] uppercase tracking-wider">Range</span>{selectedData.Range}</div>
                         <div><span className="block opacity-60 text-[8px] uppercase tracking-wider">Move</span>{selectedData.MS}</div>
-                        <div className="col-span-2 truncate"><span className="block opacity-60 text-[8px] uppercase tracking-wider">R CD</span>{selectedData['R CD 1']}/{selectedData['R CD 2']}/{selectedData['R CD 3']}</div>
+                        <div className="col-span-2 truncate"><span className="block opacity-60 text-[8px] uppercase tracking-wider">R CD {globalHaste > 0 ? '(Live)' : ''}</span>{selectedData['R CD 1']}s/{selectedData['R CD 2']}s/{selectedData['R CD 3']}s</div>
                     </div>
                 </div>
             </div>
@@ -309,8 +288,8 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ champions, theme }) => {
 
       <div className="space-y-8">
         {metrics.map((metric) => {
-            // Sort data specifically for THIS graph based on the global sort settings
             const sortedData = getSortedDataForMetric(metric);
+            const isCdMetric = metric.includes('R CD');
             
             return (
                 <div key={metric} className={`rounded-xl p-3 border animate-fade-in shadow-md transition-colors duration-300 ${
@@ -319,31 +298,17 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ champions, theme }) => {
                     : sortType === 'Value' ? 'border-white/10 bg-black/20 backdrop-blur-sm' : 'border-white/5 bg-black/10 backdrop-blur-sm'
                 }`}>
                     <div className="flex items-center justify-between mb-3 px-2">
-                        <h3 className={`text-[10px] font-black uppercase tracking-[0.2em] ${isLightTheme ? 'text-gray-400' : 'text-gray-500'}`}>{metric}</h3>
-                        {sortType === 'Value' && (
-                            <span className={`text-[9px] px-1.5 py-0.5 rounded uppercase font-bold ${isLightTheme ? 'bg-gray-100 text-gray-500' : 'bg-white/10 text-gray-300'}`}>Sorted</span>
-                        )}
+                        <h3 className={`text-[10px] font-black uppercase tracking-[0.2em] ${isLightTheme ? 'text-gray-400' : 'text-gray-500'}`}>
+                            {metric} {isCdMetric && globalHaste > 0 ? `(Haste: ${globalHaste})` : ''}
+                        </h3>
                     </div>
                     {sortedData.length > 0 ? (
                         <div style={{ height: dynamicHeight, width: '100%' }}>
                             <ResponsiveContainer width="100%" height="100%">
-                            <BarChart 
-                                data={sortedData} 
-                                layout="vertical" 
-                                margin={{ left: 20, right: 45, top: 0, bottom: 0 }} 
-                                barGap={4}
-                            >
+                            <BarChart data={sortedData} layout="vertical" margin={{ left: 20, right: 45, top: 0, bottom: 0 }} barGap={4}>
                                 <CartesianGrid horizontal={false} stroke={isLightTheme ? "#000000" : "#ffffff"} strokeOpacity={0.05} />
                                 <XAxis type="number" hide />
-                                <YAxis 
-                                    dataKey="name" 
-                                    type="category" 
-                                    width={90} 
-                                    tick={<CustomYAxisTick />}
-                                    axisLine={false}
-                                    tickLine={false}
-                                    interval={0} 
-                                />
+                                <YAxis dataKey="name" type="category" width={90} tick={<CustomYAxisTick />} axisLine={false} tickLine={false} interval={0} />
                                 <Tooltip 
                                     contentStyle={{ 
                                         backgroundColor: isLightTheme ? '#ffffff' : '#111827', 
@@ -355,29 +320,13 @@ const StatsPanel: React.FC<StatsPanelProps> = ({ champions, theme }) => {
                                     itemStyle={{ color: isLightTheme ? '#374151' : '#e5e7eb' }}
                                     cursor={{fill: isLightTheme ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)'}}
                                 />
-                                <Bar 
-                                    dataKey={metric} 
-                                    barSize={20} 
-                                    radius={[0, 4, 4, 0]} 
-                                    animationDuration={500}
-                                    onClick={(data) => handleChampionClick(data.name)}
-                                    cursor="pointer"
-                                >
+                                <Bar dataKey={metric} barSize={20} radius={[0, 4, 4, 0]} animationDuration={500} onClick={(data) => handleChampionClick(data.name)} cursor="pointer">
                                     {sortedData.map((entry, index) => {
                                         const isSelected = selectedChampion === entry.name;
                                         const isDimmed = selectedChampion !== null && !isSelected;
-                                        
-                                        return (
-                                            <Cell 
-                                                key={`cell-${index}`} 
-                                                fill={getThemeColor(entry.originalIndex)} 
-                                                opacity={isDimmed ? 0.2 : (sortType === 'Value' ? 1 : 0.8)} 
-                                                stroke={isSelected ? (isLightTheme ? '#1d4ed8' : '#fff') : 'none'}
-                                                strokeWidth={2}
-                                            />
-                                        );
+                                        return <Cell key={`cell-${index}`} fill={getThemeColor(entry.originalIndex)} opacity={isDimmed ? 0.2 : 1} stroke={isSelected ? (isLightTheme ? '#1d4ed8' : '#fff') : 'none'} strokeWidth={2} />;
                                     })}
-                                    <LabelList dataKey={metric} position="right" fill={isLightTheme ? "#4b5563" : "#9ca3af"} fontSize={11} fontWeight="bold" />
+                                    <LabelList dataKey={metric} position="right" fill={isLightTheme ? "#4b5563" : "#9ca3af"} fontSize={11} fontWeight="bold" formatter={(val: number) => isCdMetric ? `${val}s` : val} />
                                 </Bar>
                             </BarChart>
                             </ResponsiveContainer>

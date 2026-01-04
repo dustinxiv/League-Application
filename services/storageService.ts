@@ -16,6 +16,7 @@ interface UserData {
     favorites: SavedAccount[];
     recentSearches: RecentSearch[];
     appVersion: string;
+    prioritizedSpells: Record<string, string[]>;
 }
 
 const DEFAULT_DATA: UserData = {
@@ -26,7 +27,8 @@ const DEFAULT_DATA: UserData = {
         { gameName: 'dustbyte', tagLine: 'joeyc', region: 'NA' }
     ],
     recentSearches: [],
-    appVersion: '1.0'
+    appVersion: '1.0',
+    prioritizedSpells: {}
 };
 
 class StorageService {

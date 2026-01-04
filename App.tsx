@@ -6,22 +6,25 @@ import AbilitiesPanel from './components/AbilitiesPanel';
 import ChampionDetailCard from './components/ChampionDetailCard';
 import StatsPanel from './components/StatsPanel';
 import MultiSearchPanel from './components/MultiSearchPanel';
-import StudioPanel from './components/StudioPanel';
 import ChangelogModal from './components/ChangelogModal';
 import ConfirmationModal from './components/ConfirmationModal';
 import HistoryPanel from './components/HistoryPanel';
-import { ChampionDetail, Theme, EnrichedParticipant, SavedGame, SavedAccount, ChampionListItem, Role, RecentSearch } from './types';
+import MatchHistoryPanel from './components/MatchHistoryPanel';
+import MetaPanel from './components/MetaPanel'; // Import Meta Panel
+import { ChampionDetail, Theme, EnrichedParticipant, SavedGame, SavedAccount, ChampionListItem, Role, RecentSearch, MatchV5DTO, MatchParticipantV5 } from './types';
 
 // Icons
 const IconScout = () => <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>;
 const IconDetails = () => <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5zM10 5a2 2 0 110-4 2 2 0 010 4z" /></svg>;
 const IconStats = () => <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>;
-const IconStudio = () => <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>;
-const IconSettings = () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>;
+const IconHistory = () => <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
+const IconSettings = () => <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>;
+const IconMatches = () => <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg>;
+const IconMeta = () => <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>;
 
-type Tab = 'Scout' | 'Details' | 'Stats' | 'Studio';
+type Tab = 'Scout' | 'Matches' | 'Details' | 'Stats' | 'History' | 'Meta';
 
-const APP_VERSION = '1.6'; // Bump version for new history features
+const APP_VERSION = '1.8'; // Bump version for Match History
 
 const App: React.FC = () => {
   // We initialize with defaults, but data will be overwritten on mount by StorageService
@@ -35,10 +38,12 @@ const App: React.FC = () => {
   const [gameName, setGameName] = useState('');
   const [tagLine, setTagLine] = useState('');
   const [region, setRegion] = useState('NA');
+  const [currentPuuid, setCurrentPuuid] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [favorites, setFavorites] = useState<SavedAccount[]>([]);
   const [recentSearches, setRecentSearches] = useState<RecentSearch[]>([]);
+  const [prioritizedSpells, setPrioritizedSpells] = useState<Record<string, string[]>>({});
   
   // Settings State
   const [globalHaste, setGlobalHaste] = useState(0);
@@ -56,6 +61,9 @@ const App: React.FC = () => {
   const [elapsedTime, setElapsedTime] = useState('00:00');
   const [progress, setProgress] = useState(0);
 
+  // UI State
+  const [isScrolled, setIsScrolled] = useState(false);
+
   // Init - Data Loading
   useEffect(() => {
     RiotService.init();
@@ -67,6 +75,7 @@ const App: React.FC = () => {
         setGlobalHaste(data.globalHaste);
         setFavorites(data.favorites);
         setRecentSearches(data.recentSearches);
+        setPrioritizedSpells(data.prioritizedSpells || {});
         
         // Version Check
         if (data.appVersion !== APP_VERSION) {
@@ -78,6 +87,15 @@ const App: React.FC = () => {
     };
 
     loadData();
+  }, []);
+
+  // Scroll Listener
+  useEffect(() => {
+    const handleScroll = () => {
+        setIsScrolled(window.scrollY > 30);
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
   // Timer Logic
@@ -128,6 +146,22 @@ const App: React.FC = () => {
   const handleSetHaste = (val: number) => {
       setGlobalHaste(val);
       StorageService.save('globalHaste', val);
+  };
+
+  const handleTogglePriority = (championId: string, spellKey: string) => {
+    setPrioritizedSpells(prev => {
+        const champSpells = prev[championId] || [];
+        let newChampSpells;
+        if (champSpells.includes(spellKey)) {
+            newChampSpells = champSpells.filter(k => k !== spellKey);
+        } else {
+            newChampSpells = [...champSpells, spellKey];
+        }
+        
+        const newState = { ...prev, [championId]: newChampSpells };
+        StorageService.save('prioritizedSpells', newState);
+        return newState;
+    });
   };
 
   const getThemeClasses = () => {
@@ -253,15 +287,20 @@ const App: React.FC = () => {
       setChampionList([]);
       setGameStartTime(null);
       setActiveSearchTimestamp(null);
+      setCurrentPuuid(null);
       setCurrentNote('');
 
       try {
           const account = await RiotService.getAccount(targetName, targetTag, region, '');
+          setCurrentPuuid(account.puuid);
           setProgress(30);
           
           const liveGame = await RiotService.getLiveGame(account.puuid, region, '');
           if (!liveGame) {
-              throw new Error('Player is not in a live game.');
+              // Not live? Automatically switch to matches tab
+              setIsLoading(false);
+              setActiveTab('Matches');
+              return;
           }
           setGameStartTime(liveGame.gameStartTime);
           setProgress(50);
@@ -349,6 +388,80 @@ const App: React.FC = () => {
       } finally {
           setIsLoading(false);
       }
+  };
+
+  const convertMatchToEnriched = (matchInfo: MatchV5DTO): EnrichedParticipant[] => {
+      return matchInfo.info.participants.map(p => {
+          // Map MatchV5 perks to LiveGame perks structure
+          // Live: perkIds: number[], perkStyle, perkSubStyle
+          // MatchV5: perks.styles[0] (primary) -> selections[0].perk
+          const primaryStyle = p.perks.styles.find(s => s.description === 'primaryStyle');
+          const subStyle = p.perks.styles.find(s => s.description === 'subStyle');
+          
+          return {
+              puuid: p.puuid,
+              summonerId: p.summonerId,
+              championId: p.championId,
+              teamId: p.teamId,
+              riotId: `${p.riotIdGameName}#${p.riotIdTagline}`,
+              championName: p.championName,
+              perks: {
+                  perkIds: primaryStyle?.selections.map(s => s.perk) || [],
+                  perkStyle: primaryStyle?.style || 0,
+                  perkSubStyle: subStyle?.style || 0
+              },
+              isLoaded: true // Match history data doesn't fetch live ranks automatically
+          } as EnrichedParticipant;
+      });
+  };
+
+  const handleLoadMatch = async (matchId: string, info: MatchV5DTO) => {
+      setIsLoading(true);
+      setGameStartTime(info.info.gameStartTimestamp);
+      setActiveSearchTimestamp(null); 
+      setCurrentNote('');
+      setIsLiveGame(false); // Past game
+      
+      const convertedParts = convertMatchToEnriched(info);
+      setParticipants(convertedParts);
+      
+      try {
+        const newList = await loadChampionDetailsForList(convertedParts);
+        setChampionList(newList);
+        
+        // Auto-save to history as a "Review"
+        const selfP = convertedParts.find(p => p.puuid === currentPuuid);
+        const timestamp = info.info.gameEndTimestamp || Date.now();
+        
+        // We do NOT automatically add to history on view, only if they click Save in the panel
+        // But we DO set the active state so notes work temporarily
+        setActiveSearchTimestamp(timestamp);
+        
+      } catch(e) {
+          console.error(e);
+      } finally {
+        setIsLoading(false);
+        setActiveTab('Details');
+      }
+  };
+
+  const handleSaveMatchToHistory = (matchId: string, info: MatchV5DTO, note?: string) => {
+      const convertedParts = convertMatchToEnriched(info);
+      const selfP = convertedParts.find(p => p.puuid === currentPuuid);
+      
+      addToHistory({
+          gameName: gameName,
+          tagLine: tagLine,
+          region,
+          championId: selfP ? selfP.championId : 0,
+          timestamp: info.info.gameStartTimestamp,
+          notes: note || `Match Review: ${info.info.gameMode}`,
+          customTitle: `Review: ${selfP?.championName || 'Match'}`,
+          snapshot: {
+              participants: convertedParts,
+              gameStartTime: info.info.gameStartTimestamp
+          }
+      });
   };
 
   const toggleFavorite = () => {
@@ -458,14 +571,22 @@ const App: React.FC = () => {
         
         {/* Sticky Header Wrapper */}
         <div className="sticky top-0 z-50 flex flex-col">
-            <header className={`p-4 backdrop-blur-xl border-b shadow-sm transition-colors duration-500 ${isLightTheme ? 'bg-white/60 border-gray-200/50' : 'bg-black/20 border-white/5'}`}>
-                <div className="max-w-4xl mx-auto flex flex-col gap-4">
+            <header className={`backdrop-blur-xl border-b shadow-sm transition-all duration-500 ${isLightTheme ? 'bg-white/60 border-gray-200/50' : 'bg-black/20 border-white/5'} ${isScrolled ? 'py-2' : 'p-4'}`}>
+                <div className={`max-w-4xl mx-auto flex flex-col transition-all duration-300 ${isScrolled ? 'gap-2' : 'gap-4'}`}>
                     <div className="flex justify-between items-center">
-                        <h1 className="text-xl font-black tracking-tighter uppercase italic bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-500 drop-shadow-sm">
+                        <h1 className={`font-black tracking-tighter uppercase italic bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-500 drop-shadow-sm transition-all duration-300 ${isScrolled ? 'text-base' : 'text-xl'}`}>
                             LoL Gameboard
                         </h1>
                         
-                        <div className="flex items-center gap-3">
+                        <div className={`flex items-center gap-2 transition-transform duration-300 ${isScrolled ? 'scale-90 origin-right' : 'scale-100'}`}>
+                             {globalHaste > 0 && (
+                                 <div className={`flex items-center gap-1.5 px-2 py-1 rounded-md border text-[10px] font-black uppercase tracking-tighter shadow-sm animate-fade-in ${
+                                     isLightTheme ? 'bg-blue-50 border-blue-200 text-blue-600' : 'bg-blue-900/30 border-blue-500/30 text-blue-400'
+                                 }`}>
+                                     <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                                     {globalHaste} AH
+                                 </div>
+                             )}
                              {gameStartTime !== null && (
                                  <div className={`flex items-center gap-2 px-2 py-1 rounded-md border shadow-sm ${
                                      isLiveGame
@@ -485,9 +606,6 @@ const App: React.FC = () => {
                                 className={`p-1.5 rounded-lg transition-colors ${showSettings ? 'bg-blue-500/20 text-blue-500' : 'opacity-60 hover:opacity-100'}`}
                             >
                                 <IconSettings />
-                            </button>
-                            <button onClick={() => setShowChangelog(true)} className="text-xs font-bold opacity-60 hover:opacity-100">
-                                v{APP_VERSION}
                             </button>
                         </div>
                     </div>
@@ -511,16 +629,16 @@ const App: React.FC = () => {
                                     className={`w-full h-2 rounded-lg appearance-none cursor-pointer ${isLightTheme ? 'bg-gray-200 accent-blue-500' : 'bg-gray-700 accent-blue-500'}`}
                                 />
                                 <div className="flex justify-between text-[9px] opacity-60 font-mono">
-                                    <span>0</span>
+                                    <span>0 AH</span>
                                     <span>≈ {(globalHaste / (100 + globalHaste) * 100).toFixed(0)}% CDR</span>
-                                    <span>150</span>
+                                    <span>150 AH</span>
                                 </div>
                              </div>
                         </div>
                     )}
 
                     {/* Search Bar */}
-                    <div className="flex gap-2 items-center">
+                    <div className="flex gap-2 items-center transition-all duration-300">
                         <select 
                             value={region} onChange={e => setRegion(e.target.value)}
                             className={`w-18 text-xs font-bold rounded-lg px-1 py-2 outline-none border transition-colors ${
@@ -574,49 +692,54 @@ const App: React.FC = () => {
                         </button>
                     </div>
 
-                    {/* Favorites List */}
-                    {favorites.length > 0 && (
-                        <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
-                            {favorites.map((fav, i) => (
-                                <div 
-                                    key={i}
-                                    onClick={() => loadFavorite(fav)}
-                                    className={`shrink-0 flex items-center gap-2 px-3 py-1.5 rounded-full text-[10px] font-bold border cursor-pointer transition-colors ${
-                                        isLightTheme 
-                                        ? 'bg-white border-gray-300 hover:bg-gray-100 text-gray-700 shadow-sm' 
-                                        : 'bg-white/5 border-white/10 hover:bg-white/15 text-gray-300 backdrop-blur-md'
-                                    }`}
-                                >
-                                    <span>{fav.gameName} <span className="opacity-50">#{fav.tagLine}</span></span>
-                                    <span className={`text-[9px] uppercase px-1 rounded ${isLightTheme ? 'bg-gray-200' : 'bg-black/30'}`}>{fav.region}</span>
-                                    <button 
-                                        onClick={(e) => removeFavorite(e, fav)}
-                                        className="ml-1 hover:text-red-400 p-0.5"
-                                    >
-                                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                                    </button>
+                    {/* Collapsible Area for Themes and Favorites */}
+                    <div className={`overflow-hidden transition-all duration-500 ease-in-out ${isScrolled ? 'max-h-0 opacity-0' : 'max-h-[300px] opacity-100'}`}>
+                         <div className="flex flex-col gap-4">
+                            {/* Favorites List */}
+                            {favorites.length > 0 && (
+                                <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
+                                    {favorites.map((fav, i) => (
+                                        <div 
+                                            key={i}
+                                            onClick={() => loadFavorite(fav)}
+                                            className={`shrink-0 flex items-center gap-2 px-3 py-1.5 rounded-full text-[10px] font-bold border cursor-pointer transition-colors ${
+                                                isLightTheme 
+                                                ? 'bg-white border-gray-300 hover:bg-gray-100 text-gray-700 shadow-sm' 
+                                                : 'bg-white/5 border-white/10 hover:bg-white/15 text-gray-300 backdrop-blur-md'
+                                            }`}
+                                        >
+                                            <span>{fav.gameName} <span className="opacity-50">#{fav.tagLine}</span></span>
+                                            <span className={`text-[9px] uppercase px-1 rounded ${isLightTheme ? 'bg-gray-200' : 'bg-black/30'}`}>{fav.region}</span>
+                                            <button 
+                                                onClick={(e) => removeFavorite(e, fav)}
+                                                className="ml-1 hover:text-red-400 p-0.5"
+                                            >
+                                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                            </button>
+                                        </div>
+                                    ))}
                                 </div>
-                            ))}
-                        </div>
-                    )}
+                            )}
 
-                    {error && <div className="text-red-500 text-xs font-bold text-center bg-red-500/10 p-2 rounded border border-red-500/20">{error}</div>}
-                
-                    {/* Theme Selector */}
-                    <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar border-t border-gray-500/10 pt-2">
-                        {['Dark', 'Light', 'Shadow Isles', 'Bilgewater', 'Shurima', 'Ionia', 'Piltover', 'Winter Wonder', 'iOS 18 Glass'].map(t => (
-                            <button 
-                                key={t}
-                                onClick={() => handleSetTheme(t as Theme)}
-                                className={`whitespace-nowrap px-3 py-1 rounded-full text-[10px] font-bold border transition-all ${
-                                    theme === t 
-                                    ? 'bg-blue-600 text-white border-blue-500 shadow-md transform scale-105' 
-                                    : isLightTheme ? 'bg-white text-gray-600 border-gray-300' : 'bg-white/5 text-gray-400 border-white/10 hover:bg-white/10'
-                                }`}
-                            >
-                                {t}
-                            </button>
-                        ))}
+                            {error && <div className="text-red-500 text-xs font-bold text-center bg-red-500/10 p-2 rounded border border-red-500/20">{error}</div>}
+                        
+                            {/* Theme Selector */}
+                            <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar border-t border-gray-500/10 pt-2">
+                                {['Dark', 'Light', 'Shadow Isles', 'Bilgewater', 'Shurima', 'Ionia', 'Piltover', 'Winter Wonder', 'iOS 18 Glass'].map(t => (
+                                    <button 
+                                        key={t}
+                                        onClick={() => handleSetTheme(t as Theme)}
+                                        className={`whitespace-nowrap px-3 py-1 rounded-full text-[10px] font-bold border transition-all ${
+                                            theme === t 
+                                            ? 'bg-blue-600 text-white border-blue-500 shadow-md transform scale-105' 
+                                            : isLightTheme ? 'bg-white text-gray-600 border-gray-300' : 'bg-white/5 text-gray-400 border-white/10 hover:bg-white/10'
+                                        }`}
+                                    >
+                                        {t}
+                                    </button>
+                                ))}
+                            </div>
+                         </div>
                     </div>
                 </div>
             </header>
@@ -626,9 +749,11 @@ const App: React.FC = () => {
                 <div className="max-w-4xl mx-auto flex justify-around p-1">
                     {[
                         { id: 'Scout', icon: <IconScout />, label: 'Live' },
+                        { id: 'Matches', icon: <IconMatches />, label: 'Matches' },
+                        { id: 'Meta', icon: <IconMeta />, label: 'Meta' },
                         { id: 'Details', icon: <IconDetails />, label: 'Details' },
                         { id: 'Stats', icon: <IconStats />, label: 'Graphs' },
-                        { id: 'Studio', icon: <IconStudio />, label: 'Studio' },
+                        { id: 'History', icon: <IconHistory />, label: 'Memory Bank' },
                     ].map((tab) => (
                         <button
                             key={tab.id}
@@ -651,17 +776,6 @@ const App: React.FC = () => {
         <main className="max-w-4xl mx-auto p-4 min-h-[50vh]">
             {activeTab === 'Scout' && (
                 <div className="space-y-6">
-                    {/* Recent History Panel - UPDATED */}
-                    {recentSearches.length > 0 && (
-                        <HistoryPanel 
-                            history={recentSearches}
-                            onLoad={handleRecentClick}
-                            onUpdate={updateHistoryItem}
-                            onDelete={deleteHistoryItem}
-                            theme={theme}
-                        />
-                    )}
-                    
                     {/* Game Notes - Visible if active session exists */}
                     {activeSearchTimestamp && (
                         <div className={`rounded-xl border p-3 transition-colors ${
@@ -672,7 +786,7 @@ const App: React.FC = () => {
                                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                                     Match Notes
                                 </h3>
-                                <span className={`text-[9px] uppercase ${isLightTheme ? 'text-yellow-600/60' : 'text-yellow-500/60'}`}>Auto-saves to History</span>
+                                <span className={`text-[9px] uppercase ${isLightTheme ? 'text-yellow-600/60' : 'text-yellow-500/60'}`}>Auto-saves to Memory Bank</span>
                             </div>
                             <textarea
                                 value={currentNote}
@@ -700,10 +814,31 @@ const App: React.FC = () => {
                     {simpleChampions.length > 0 && (
                         <div>
                             <h2 className={`text-sm font-bold uppercase mb-3 px-1 ${isLightTheme ? 'text-gray-600' : 'text-gray-400'}`}>High Priority Spells</h2>
-                            <AbilitiesPanel champions={simpleChampions} globalHaste={globalHaste} theme={theme} />
+                            <AbilitiesPanel 
+                                champions={simpleChampions} 
+                                globalHaste={globalHaste} 
+                                theme={theme}
+                                prioritizedSpells={prioritizedSpells}
+                                onTogglePriority={handleTogglePriority}
+                            />
                         </div>
                     )}
                 </div>
+            )}
+
+            {activeTab === 'Matches' && (
+                <MatchHistoryPanel
+                    puuid={currentPuuid}
+                    region={region}
+                    theme={theme}
+                    history={recentSearches}
+                    onLoadMatch={handleLoadMatch}
+                    onSaveMatch={handleSaveMatchToHistory}
+                />
+            )}
+
+            {activeTab === 'Meta' && (
+                <MetaPanel theme={theme} />
             )}
 
             {activeTab === 'Details' && (
@@ -716,11 +851,17 @@ const App: React.FC = () => {
             )}
 
             {activeTab === 'Stats' && (
-                <StatsPanel champions={simpleChampions} theme={theme} />
+                <StatsPanel champions={simpleChampions} theme={theme} globalHaste={globalHaste} />
             )}
 
-            {activeTab === 'Studio' && (
-                <StudioPanel champions={simpleChampions} participants={participants} theme={theme} />
+            {activeTab === 'History' && (
+                <HistoryPanel 
+                    history={recentSearches}
+                    onLoad={handleRecentClick}
+                    onUpdate={updateHistoryItem}
+                    onDelete={deleteHistoryItem}
+                    theme={theme}
+                />
             )}
         </main>
 

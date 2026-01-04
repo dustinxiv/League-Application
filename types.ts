@@ -100,7 +100,7 @@ export interface ChampionPassive {
 }
 
 export interface ChampionDetail extends ChampionSimple {
-  skins: any[];
+  skins: { id: string; num: number; name: string; chromas: boolean }[];
   lore: string;
   spells: ChampionSpell[];
   passive: ChampionPassive;
@@ -116,9 +116,14 @@ export interface RiotAccount {
 export interface LiveGameParticipant {
   puuid: string;
   summonerId: string;
-  championId: number; // This maps to the 'key' in ChampionSimple (stats.id is string name, key is string number)
+  championId: number;
   teamId: number;
   riotId: string;
+  perks?: {
+    perkIds: number[];
+    perkStyle: number;
+    perkSubStyle: number;
+  };
 }
 
 export interface LiveGameInfo {
@@ -131,15 +136,13 @@ export interface LiveGameInfo {
 }
 
 export interface RegionConfig {
-  region: string; // e.g., 'americas'
-  platform: string; // e.g., 'na1'
+  region: string;
+  platform: string;
 }
-
-// --- NEW TYPES FOR MULTI-SEARCH ---
 
 export interface LeagueEntry {
   leagueId: string;
-  queueType: string; // RANKED_SOLO_5x5
+  queueType: string;
   tier: string;
   rank: string;
   leaguePoints: number;
@@ -158,7 +161,7 @@ export interface ChampionMastery {
 }
 
 export interface EnrichedParticipant extends LiveGameParticipant {
-  championName?: string; // Derived from ID
+  championName?: string;
   rankSolo?: LeagueEntry;
   mastery?: ChampionMastery[];
   isLoaded?: boolean;
@@ -180,7 +183,7 @@ export interface SavedAccount {
 
 export interface SearchTag {
     championId: number;
-    teamId: number; // 100 or 200
+    teamId: number;
 }
 
 export interface RecentSearch {
@@ -198,11 +201,80 @@ export interface RecentSearch {
   };
 }
 
-// --- NEW TYPES FOR LIST & FILTERING ---
+// Match V5 Types
+export interface MatchV5DTO {
+    metadata: {
+        matchId: string;
+        participants: string[];
+    };
+    info: {
+        gameCreation: number;
+        gameDuration: number;
+        gameStartTimestamp: number;
+        gameEndTimestamp?: number;
+        gameMode: string;
+        queueId: number;
+        participants: MatchParticipantV5[];
+    };
+}
+
+export interface MatchParticipantV5 {
+    puuid: string;
+    summonerId: string;
+    championId: number;
+    championName: string;
+    teamId: number;
+    riotIdGameName: string;
+    riotIdTagline: string;
+    win: boolean;
+    kills: number;
+    deaths: number;
+    assists: number;
+    item0: number;
+    item1: number;
+    item2: number;
+    item3: number;
+    item4: number;
+    item5: number;
+    item6: number;
+    summoner1Id: number;
+    summoner2Id: number;
+    totalDamageDealtToChampions: number;
+    totalDamageTaken: number;
+    goldEarned: number;
+    wardsPlaced: number;
+    wardsKilled: number;
+    visionWardsBoughtInGame: number;
+    detectorWardsPlaced?: number;
+    totalMinionsKilled: number;
+    neutralMinionsKilled: number;
+    champLevel: number;
+    doubleKills: number;
+    tripleKills: number;
+    quadraKills: number;
+    pentaKills: number;
+    perks: {
+        styles: {
+            description: string;
+            selections: { perk: number }[];
+            style: number;
+        }[];
+    };
+}
+
 export type Role = 'Top' | 'Jungle' | 'Mid' | 'Bot' | 'Support' | 'Manual';
 
 export interface ChampionListItem {
     detail: ChampionDetail;
     role: Role;
     team?: 'Blue' | 'Red';
+}
+
+export interface MetaChampion {
+    name: string;
+    tier: string;
+    winRate: string;
+    pickRate: string;
+    banRate: string;
+    role: string;
 }

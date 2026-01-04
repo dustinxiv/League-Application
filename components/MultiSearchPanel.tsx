@@ -39,9 +39,14 @@ const RankBadge: React.FC<{ tier: string; rank: string; lp: number }> = ({ tier,
 
 const PlayerCard: React.FC<{ p: EnrichedParticipant, onClick?: (name: string) => void, isLightTheme: boolean, region: string }> = ({ p, onClick, isLightTheme, region }) => {
   const version = RiotService.getVersion();
-  // Get Champion Image from ID
   const champData = RiotService.getChampionByKey(p.championId);
   const champImg = champData ? `https://ddragon.leagueoflegends.com/cdn/${version}/img/champion/${champData.image.full}` : '';
+
+  const keystoneId = p.perks?.perkIds[0];
+  const secondaryStyleId = p.perks?.perkSubStyle;
+  
+  const keystoneIcon = RiotService.getRuneIcon(keystoneId);
+  const secondaryStyleIcon = RiotService.getRuneIcon(secondaryStyleId);
 
   const rank = p.rankSolo;
   const winRate = rank ? Math.round((rank.wins / (rank.wins + rank.losses)) * 100) : 0;
@@ -50,34 +55,42 @@ const PlayerCard: React.FC<{ p: EnrichedParticipant, onClick?: (name: string) =>
   const handleOpGgClick = (e: React.MouseEvent, riotId: string) => {
       e.stopPropagation();
       if (!riotId || !riotId.includes('#')) return;
-
       const [gameName, ...rest] = riotId.split('#');
       const tagLine = rest.join('');
-      
-      // Handle URL Encoding (spaces become %20, chinese chars, etc)
       const encodedName = encodeURIComponent(gameName);
-      
-      // op.gg uses 'na', 'euw', 'kr' etc. (lowercase)
       const regionPath = region.toLowerCase();
-
-      // Format: https://op.gg/lol/summoners/na/Name-Tag
       const url = `https://op.gg/lol/summoners/${regionPath}/${encodedName}-${tagLine}`;
       window.open(url, '_blank');
   };
 
   return (
     <div 
-        className={`flex items-center gap-3 p-2 border rounded-lg mb-2 cursor-pointer transition-colors active:scale-95 transform ${
+        className={`flex items-center gap-3 p-2 border rounded-lg mb-2 cursor-pointer transition-all active:scale-95 transform ${
             isLightTheme 
             ? 'bg-white/80 border-gray-200 hover:bg-white' 
             : 'bg-black/20 border-white/5 hover:bg-black/40 backdrop-blur-sm'
         }`}
         onClick={() => onClick && p.championName && onClick(p.championName)}
     >
-      {/* Champ Icon */}
+      {/* Champ Icon & Runes */}
       <div className="relative shrink-0">
-        <img src={champImg} alt="Champ" className="w-10 h-10 rounded-full border border-white/20" />
-        <div className="absolute -bottom-1 -right-1 bg-black text-white text-[9px] px-1 rounded border border-gray-700">
+        <img src={champImg} alt="Champ" className="w-12 h-12 rounded-full border border-white/20" />
+        
+        {/* Keystone Icon Overlaid */}
+        {keystoneIcon && (
+            <div className="absolute -top-1 -left-1 w-6 h-6 bg-black rounded-full border border-gray-700 p-0.5 overflow-hidden shadow-lg z-10">
+                <img src={keystoneIcon} alt="Keystone" className="w-full h-full object-contain" />
+            </div>
+        )}
+
+        {/* Secondary Style Icon Overlaid */}
+        {secondaryStyleIcon && (
+            <div className="absolute top-1 -right-1 w-4 h-4 bg-black/60 rounded-full border border-gray-700/50 p-0.5 overflow-hidden shadow-md z-10 backdrop-blur-xs">
+                <img src={secondaryStyleIcon} alt="Secondary" className="w-full h-full object-contain grayscale-[0.2]" />
+            </div>
+        )}
+
+        <div className="absolute -bottom-1 -right-1 bg-black text-white text-[9px] px-1 rounded border border-gray-700 z-10">
           {winRate > 0 ? `${winRate}%` : '-'}
         </div>
       </div>
@@ -85,7 +98,6 @@ const PlayerCard: React.FC<{ p: EnrichedParticipant, onClick?: (name: string) =>
       {/* Info */}
       <div className="flex-1 min-w-0">
         <div className="flex justify-between items-center mb-1">
-          {/* Summoner Name - Interactive for OP.GG */}
           <div 
             onClick={(e) => handleOpGgClick(e, p.riotId)}
             className={`truncate text-xs font-bold hover:underline decoration-blue-500 cursor-pointer ${isLightTheme ? 'text-gray-900 hover:text-blue-600' : 'text-gray-200 hover:text-blue-400'}`}
@@ -105,7 +117,6 @@ const PlayerCard: React.FC<{ p: EnrichedParticipant, onClick?: (name: string) =>
         </div>
         
         <div className="flex justify-between items-center">
-            {/* W/L */}
             <div className={`text-[10px] ${isLightTheme ? 'text-gray-500' : 'text-gray-400'}`}>
                {p.isLoaded ? (
                    rank ? `${rank.wins}W ${rank.losses}L (${totalGames} Games)` : 'No recent ranked data'
@@ -114,7 +125,6 @@ const PlayerCard: React.FC<{ p: EnrichedParticipant, onClick?: (name: string) =>
                )}
             </div>
             
-            {/* Mastery Icons */}
             <div className="flex -space-x-1">
                {p.mastery?.map(m => {
                    const mChamp = RiotService.getChampionByKey(m.championId);
@@ -146,27 +156,22 @@ const MultiSearchPanel: React.FC<MultiSearchPanelProps> = ({ participants, progr
   if (participants.length === 0) return <div className={`text-center p-8 ${isLightTheme ? 'text-gray-400' : 'text-gray-500'}`}>No live game data available.</div>;
 
   const handleCopyOpGg = () => {
-      // Create a comma separated list of Riot IDs with format: "Name #Tag,Name #Tag"
       const text = participants
         .map(p => {
             if (!p.riotId) return '';
-            // Insert space before hash if it exists
             return p.riotId.includes('#') ? p.riotId.replace('#', ' #') : p.riotId;
         })
-        .filter(id => id) // Ensure no empties
+        .filter(id => id)
         .join(',');
 
       navigator.clipboard.writeText(text).then(() => {
           setCopied(true);
           setTimeout(() => setCopied(false), 2000);
-      }).catch(err => {
-          console.error('Failed to copy', err);
       });
   };
 
   return (
     <div className="w-full pb-20">
-      {/* Progress Bar */}
       {progress > 0 && progress < 100 && (
         <div className="mb-4">
              <div className={`flex justify-between text-[10px] mb-1 uppercase tracking-wide font-bold ${isLightTheme ? 'text-gray-500' : 'text-gray-400'}`}>
@@ -182,7 +187,6 @@ const MultiSearchPanel: React.FC<MultiSearchPanelProps> = ({ participants, progr
         </div>
       )}
       
-      {/* OP.GG Quick Actions */}
       <div className="flex gap-2 mb-6">
         <button 
             onClick={handleCopyOpGg}
@@ -219,13 +223,10 @@ const MultiSearchPanel: React.FC<MultiSearchPanelProps> = ({ participants, progr
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Blue Team */}
         <div>
             <h3 className="text-xs font-bold text-blue-400 uppercase tracking-widest mb-3 border-b border-blue-500/20 pb-1">Blue Team</h3>
             {blueTeam.map(p => <PlayerCard key={p.puuid} p={p} onClick={onParticipantClick} isLightTheme={isLightTheme} region={region} />)}
         </div>
-
-        {/* Red Team */}
         <div>
             <h3 className="text-xs font-bold text-red-400 uppercase tracking-widest mb-3 border-b border-red-500/20 pb-1">Red Team</h3>
             {redTeam.map(p => <PlayerCard key={p.puuid} p={p} onClick={onParticipantClick} isLightTheme={isLightTheme} region={region} />)}
